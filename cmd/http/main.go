@@ -63,15 +63,28 @@ func main() {
 		"GET": BuildGetLogin(webClientId),
 		"POST": PostLogin,
 	})
+
 	mux.RegisterHandlers("/my/habits", map[string]http.HandlerFunc{
 		"GET": sessionParser(BlockAnonymous(GetMyhabits)),
 		"POST": sessionParser(BlockAnonymous(PostMyHabits)),
 	})
-
 	// TODO if performance is an issue create an /all/habits
 	mux.RegisterHandlers("/shared/habits", map[string]http.HandlerFunc{
 		"GET": sessionParser(BlockAnonymous(GetSharedHabits)),
 	});
+
+	// TODO if performance is an issue return activities in same batch as habits
+	// How do you keep all this modular without burdening the client?
+	// GraphQL provides one such way. An exposed and powerful querying language
+	// the clients are able to use in a single request.
+
+	// POST to /habit/:habitId with status in body to register an activity
+	// GET to /habit/:habitId?limit=...&order=... works on the pagination of activities
+	// this endpoint also returns description, name and shared with
+	// GET /habit/:habitid/streak to get the number
+
+	// TODO need a concept of user Id
+	// POST /user/userId
 
 	log.Printf("Listening on port %s", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), mux))

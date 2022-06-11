@@ -466,6 +466,7 @@ func (a *HabitShareFile) GetSharedHabits(owner string, limit int) ([]habit_share
 }
 
 // GetStreak implements habit_share.HabitsDatabase
+// TODO for performance this should be calculated on activity entry and cached
 func (a *HabitShareFile) GetScore(habitId string) (int, error) {
 	habit, ok := a.Habits[habitId]
 	if !ok {

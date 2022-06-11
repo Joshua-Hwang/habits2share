@@ -31,11 +31,11 @@ import (
 
 type sessionInfo struct {
 	sessionId string
-	account   string
+	userId    string
 	createdAt time.Time
 }
 
-func csvToSessionInfo(row []string) (sessionInfo, error) {
+func csvRowToSessionInfo(row []string) (sessionInfo, error) {
 	if len(row) < 3 {
 		return sessionInfo{}, errors.New("Not enough columns in this CSV")
 	}
@@ -45,13 +45,13 @@ func csvToSessionInfo(row []string) (sessionInfo, error) {
 		return sessionInfo{}, err
 	}
 
-	return sessionInfo{sessionId: row[0], account: row[1], createdAt: createdAt}, nil
+	return sessionInfo{sessionId: row[0], userId: row[1], createdAt: createdAt}, nil
 }
 
 func sessionInfoToCsv(session sessionInfo) [3]string {
 	return [3]string{
 		session.sessionId,
-		session.account,
+		session.userId,
 		session.createdAt.Format(time.RFC3339),
 	}
 }
@@ -64,7 +64,7 @@ type AuthDatabaseFile struct {
 var _ auth.AuthDatabase = (*AuthDatabaseFile)(nil)
 
 // TODO This is so inefficient as we're iterating over a list to find the email
-func (a *AuthDatabaseFile) AccountExists(ctx context.Context, email string) (string, error) {
+func (a *AuthDatabaseFile) GetUserIdFromEmail(ctx context.Context, email string) (string, error) {
 	accountsFile, err := os.Open(a.AccountsFilepath)
 	if err != nil {
 		return "", err
@@ -74,6 +74,7 @@ func (a *AuthDatabaseFile) AccountExists(ctx context.Context, email string) (str
 	accountsDecoder := json.NewDecoder(accountsFile)
 
 	accounts := []struct {
+		Id    string
 		Email string
 	}{}
 
@@ -84,14 +85,14 @@ func (a *AuthDatabaseFile) AccountExists(ctx context.Context, email string) (str
 
 	for _, account := range accounts {
 		if account.Email == email {
-			return account.Email, nil
+			return account.Id, nil
 		}
 	}
 
 	return "", auth.ErrNotFound
 }
 
-func (a *AuthDatabaseFile) AddSession(ctx context.Context, sessionId string, email string) error {
+func (a *AuthDatabaseFile) AddSession(ctx context.Context, sessionId string, userId string) error {
 	sessionsFile, err := os.OpenFile(a.SessionsFilepath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
@@ -101,42 +102,42 @@ func (a *AuthDatabaseFile) AddSession(ctx context.Context, sessionId string, ema
 	sessionsFileWriter := csv.NewWriter(sessionsFile)
 	defer sessionsFileWriter.Flush()
 
-	sessionInfo := sessionInfoToCsv(sessionInfo{sessionId: sessionId, account: email, createdAt: time.Now()})
+	sessionInfo := sessionInfoToCsv(sessionInfo{sessionId: sessionId, userId: userId, createdAt: time.Now()})
 
 	sessionsFileWriter.Write(sessionInfo[:])
 
 	return nil
 }
 
-func (a *AuthDatabaseFile) GetSession(ctx context.Context, sessionId string, since time.Time) (auth.AccountDetails, error) {
+func (a *AuthDatabaseFile) GetUserIdFromSession(ctx context.Context, sessionId string, since time.Time) (string, error) {
 	sessionsFile, err := os.Open(a.SessionsFilepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return auth.AccountDetails{}, auth.ErrNotFound
+			return "", auth.ErrNotFound
 		}
-		return auth.AccountDetails{}, err
+		return "", err
 	}
 	defer sessionsFile.Close()
 
 	sessionsFileReader := csv.NewReader(sessionsFile)
 	for {
-		sessionCsv, err := sessionsFileReader.Read()
+		sessionCsvRow, err := sessionsFileReader.Read()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			return auth.AccountDetails{}, err
+			return "", err
 		}
 
-		session, err := csvToSessionInfo(sessionCsv)
+		session, err := csvRowToSessionInfo(sessionCsvRow)
 		if err != nil {
-			return auth.AccountDetails{}, err
+			return "", err
 		}
 
 		if session.sessionId == sessionId && session.createdAt.After(since) {
-			return auth.AccountDetails{Email: session.account}, nil
+			return session.userId, nil
 		}
 	}
 
-	return auth.AccountDetails{}, auth.ErrNotFound
+	return "", auth.ErrNotFound
 }

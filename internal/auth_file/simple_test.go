@@ -39,9 +39,9 @@ func TestAddSession(t *testing.T) {
 	})
 }
 
-func TestAccountExists(t *testing.T) {
+func TestGetUserIdFromEmail(t *testing.T) {
 	err := os.WriteFile(testJson,
-		[]byte("[{\"email\":\"test@user.com\"},{\"email\":\"fake@user.com\"},{\"email\":\"correct@answer.com\"}]"),
+	[]byte("[{\"Id\":\"123\",\"Email\":\"test@user.com\"},{\"Id\":\"987\",\"Email\":\"fake@user.com\"},{\"Id\":\"432\",\"Email\":\"correct@answer.com\"}]"),
 		0600,
 	)
 	if err != nil {
@@ -51,21 +51,21 @@ func TestAccountExists(t *testing.T) {
 	t.Run("should return correct answer", func(t *testing.T) {
 		authDatabaseFile := AuthDatabaseFile{AccountsFilepath: testJson}
 
-		email, err := authDatabaseFile.AccountExists(context.Background(), "correct@answer.com")
+		userId, err := authDatabaseFile.GetUserIdFromEmail(context.Background(), "correct@answer.com")
 
 		if err != nil {
 			t.Error("expected error to be nil got: ", err)
 		}
 
-		if email != "correct@answer.com" {
-			t.Error("expected email to be correct@answer.com but got: ", email)
+		if userId != "432" {
+			t.Error("expected email to be 432 but got: ", userId)
 		}
 	})
 }
 
 func TestGetSession(t *testing.T) {
 	err := os.WriteFile(testCsv,
-		[]byte("abcde,test@user.com,2022-05-15T23:31:17+00:00"),
+		[]byte("abcde,userId,2022-05-15T23:31:17+00:00"),
 		0600,
 	)
 	if err != nil {
@@ -75,7 +75,7 @@ func TestGetSession(t *testing.T) {
 	t.Run("should successfully get session", func(t *testing.T) {
 		authDatabaseFile := AuthDatabaseFile{SessionsFilepath: testCsv}
 
-		accountDetails, err := authDatabaseFile.GetSession(context.Background(),
+		userId, err := authDatabaseFile.GetUserIdFromSession(context.Background(),
 			"abcde",
 			time.Date(2022, 05, 15, 00, 00, 00, 00, time.UTC),
 		)
@@ -83,8 +83,8 @@ func TestGetSession(t *testing.T) {
 			t.Error("expected error to be nil got: ", err)
 		}
 
-		if accountDetails.Email != "test@user.com" {
-			t.Error("expected email to be test@user.com but got: ", accountDetails.Email)
+		if userId != "userId" {
+			t.Error("expected email to be userId but got: ", userId)
 		}
 	})
 }
@@ -93,7 +93,7 @@ func TestFilesDoNotExist(t *testing.T) {
 	t.Run("access session", func(t *testing.T) {
 		authDatabaseFile := AuthDatabaseFile{SessionsFilepath: "does not exist"}
 
-		_, err := authDatabaseFile.GetSession(context.Background(),
+		_, err := authDatabaseFile.GetUserIdFromSession(context.Background(),
 			"abcde",
 			time.Date(2022, 05, 15, 00, 00, 00, 00, time.UTC),
 		)

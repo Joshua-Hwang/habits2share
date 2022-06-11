@@ -79,7 +79,7 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find mapping of email to user id
-	email, err := db.AccountExists(r.Context(), claims.Email)
+	userId, err := db.GetUserIdFromEmail(r.Context(), claims.Email)
 	if err != nil {
 		w.WriteHeader(http.StatusFailedDependency)
 		fmt.Fprintf(w, "Failed to query habits: %s", err)
@@ -87,15 +87,9 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For security override user input with our valid email
-	claims.Email = email
+	sessionId := uuid.NewString()
 
-	sessionId, err := uuid.NewRandom()
-	if err != nil {
-		log.Fatalf("Failed to generate UUID: %s", err)
-	}
-
-	err = db.AddSession(r.Context(), sessionId.String(), claims.Email)
+	err = db.AddSession(r.Context(), sessionId, userId)
 	if err != nil {
 		log.Printf("Failed to add session to database: %s", err)
 		w.WriteHeader(http.StatusFailedDependency)
@@ -104,7 +98,7 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookieName,
-		Value:    sessionId.String(),
+		Value:    sessionId,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		HttpOnly: true,
@@ -113,7 +107,7 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func buildSessionKey(sessionId uuid.UUID) string {
+func buildSessionKey(sessionId string) string {
 	return fmt.Sprintf("session/%s", sessionId)
 }
 
@@ -151,7 +145,7 @@ func BuildSessionParser(redirectUrl string) func(http.HandlerFunc) http.HandlerF
 					next(w, r)
 					return
 				}
-				accountDetails, err := db.GetSession(
+				userId, err := db.GetUserIdFromSession(
 					r.Context(),
 					sessionId.String(),
 					time.Now().AddDate(-1, 0, 0),
@@ -170,7 +164,7 @@ func BuildSessionParser(redirectUrl string) func(http.HandlerFunc) http.HandlerF
 					}
 				}
 
-				ctx := context.WithValue(r.Context(), userIdKey, accountDetails.Email)
+				ctx := context.WithValue(r.Context(), userIdKey, userId)
 				r = r.WithContext(ctx)
 				// hack as this is a new r and the existing closure doesn't capture it
 				//authService.GetUserId = BuildUserIdGetter(r)
