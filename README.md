@@ -11,5 +11,5 @@ Create a file called `accounts.json` which is an array of `{"Email": "insert ema
 1. Run `./scripts/start.sh` to run the server. We currently don't have any dependencies.
 
 ## TODO
-[] Remove need for Google Cloud OAuth
-[] Sharing habits
+* [ ] Remove need for Google Cloud OAuth
+* [ ] Sharing habits
