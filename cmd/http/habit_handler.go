@@ -126,6 +126,12 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			fmt.Fprintf(w, "%s", string(bytes))
 		},
 		"POST": func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+				w.WriteHeader(http.StatusUnsupportedMediaType)
+				fmt.Fprintf(w, "Content Type is not application/json")
+				return
+			}
+
 			app, ok := injectApp(w, r)
 			if !ok {
 				return

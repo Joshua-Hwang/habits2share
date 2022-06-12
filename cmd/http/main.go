@@ -64,18 +64,18 @@ func main() {
 
 	mux := MuxWrapper{ServeMux: http.NewServeMux(), Middleware: buildDependencies}
 	mux.RegisterHandlers("/login", map[string]http.HandlerFunc{
-		"GET": BuildGetLogin(webClientId),
+		"GET":  BuildGetLogin(webClientId),
 		"POST": PostLogin,
 	})
 
 	mux.RegisterHandlers("/my/habits", map[string]http.HandlerFunc{
-		"GET": sessionParser(BlockAnonymous(GetMyhabits)),
+		"GET":  sessionParser(BlockAnonymous(GetMyhabits)),
 		"POST": sessionParser(BlockAnonymous(PostMyHabits)),
 	})
 	// TODO if performance is an issue create an /all/habits
 	mux.RegisterHandlers("/shared/habits", map[string]http.HandlerFunc{
 		"GET": sessionParser(BlockAnonymous(GetSharedHabits)),
-	});
+	})
 
 	// TODO if performance is an issue return activities in same batch as habits
 	// How do you keep all this modular without burdening the client?
@@ -84,12 +84,13 @@ func main() {
 	{
 		pathPrefix := "/habit/"
 		mux.HandleFunc(pathPrefix, sessionParser(BlockAnonymous(func(w http.ResponseWriter, r *http.Request) {
+			// TODO either refactor or generate more general solution to this
 			// get habitId
 			remainingUrl := strings.TrimPrefix(r.URL.EscapedPath(), pathPrefix)
 			if remainingUrl == r.URL.EscapedPath() {
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprintf(w, "Path is malformed")
-				log.Printf("Something funky going on with trimming path")
+				log.Print("Something funky going on with trimming path", remainingUrl)
 			}
 			habitId, remainingUrl, _ := strings.Cut(remainingUrl, "/")
 			// the slash is removed during cut
@@ -100,7 +101,7 @@ func main() {
 			if !ok {
 				return
 			}
-			// TODO check user is allowed to see habit prior
+			// TODO check user is allowed to see habit prior retrieving it for performance
 			habit, err := app.GetHabit(habitId)
 			if err != nil {
 				if err == habit_share.HabitNotFoundError {
@@ -114,14 +115,14 @@ func main() {
 
 			habitHandler := BuildHabitHandler(&habit)
 			habitHandler.ServeHTTP(w, r)
-		})));
+		})))
 	}
 
-	{
-		//pathPrefix := "/user/"
-	}
-	// POST /user/:userId in body provide habit to share
-	// DELETE /user/:userId/habit/:habitId to unshare app
+	// TODO this doesn't work if other endpoints exist on this prefix
+	mux.RegisterHandlers("/user/", map[string]http.HandlerFunc{
+		"POST":   sessionParser(BlockAnonymous(PostUserHabit)),
+		"DELETE": sessionParser(BlockAnonymous(DeleteUserHabit)),
+	})
 
 	log.Printf("Listening on port %s", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), mux))

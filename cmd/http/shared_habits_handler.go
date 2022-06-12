@@ -21,6 +21,7 @@ func GetSharedHabits(w http.ResponseWriter, r *http.Request) {
 		log.Printf("GetMyHabits failed with %v", err)
 	}
 
+	// TODO the SharedWith shouldn't be exposed in what is shared
 	res, err := json.Marshal(habits)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
