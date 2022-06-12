@@ -58,7 +58,7 @@ type HabitsDatabase interface {
 	// the value returned should not be modified in case of an in-memory database
 	// avoiding copying
 	GetHabit(id string) (Habit, error)
-	RenameHabit(id string, newName string) error
+	ChangeName(id string, newName string) error
 	// frequency should technically be checked (1-7) in this part prior to sending
 	// request to underlying implementation
 	ChangeFrequency(id string, newFrequency int) error

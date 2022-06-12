@@ -162,8 +162,8 @@ func (a *App) GetActivities(
 	before time.Time,
 	limit int,
 ) (activities []Activity, hasMore bool, err error) {
-	if err := a.habitSharedCheck(habitId); err != nil {
-		return nil, false, err
+	if a.habitOwnerCheck(habitId) != nil && a.habitSharedCheck(habitId) != nil {
+		return nil, false, HabitNotFoundError
 	}
 
 	return a.Db.GetActivities(habitId, after, before, limit)
@@ -190,8 +190,12 @@ func (a *App) GetMyHabits(limit int, archived bool) ([]Habit, error) {
 
 // GetScore implements HabitsDatabase
 func (a *App) GetScore(habitId string) (int, error) {
-	if err := a.habitSharedCheck(habitId); err != nil {
-		return 0, err
+	if err := a.habitOwnerCheck(habitId); err != nil {
+		if err := a.habitSharedCheck(habitId); err != nil {
+			// neither owned nor shared
+			return 0, err
+		}
+		// not owner but shared
 	}
 
 	return a.Db.GetScore(habitId);
@@ -216,13 +220,14 @@ func (a *App) GetSharedWith(habitId string) (map[string]struct{}, error) {
 	return a.Db.GetSharedWith(habitId);
 }
 
-// RenameHabit implements HabitsDatabase
-func (a *App) RenameHabit(id string, newName string) error {
+// ChangeName implements HabitsDatabase
+func (a *App) ChangeName(id string, newName string) error {
 	if err := a.habitOwnerCheck(id); err != nil {
 		return err
 	}
 
-	return a.Db.RenameHabit(id, newName)
+	// TODO disallow characters like \n for readability
+	return a.Db.ChangeName(id, newName)
 }
 
 // ShareHabit implements HabitsDatabase

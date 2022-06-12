@@ -27,5 +27,7 @@ func GetSharedHabits(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Marshalling failed")
 		log.Printf("Marshalling failed with %v", err)
 	}
+
+	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprint(w, string(res))
 }

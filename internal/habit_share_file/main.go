@@ -6,6 +6,7 @@ import (
 	"internal/habit_share"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,17 +23,17 @@ func constructActivityId(habitId string, logged time.Time) string {
 }
 
 func parseActivityId(activityId string) (habitId string, date time.Time, err error) {
-	var dateString string
-	n, err := fmt.Sscanf(activityId, "%s_%s", &habitId, &dateString)
-	if err != nil {
-		return
-	}
-	if n != 2 {
+	lastIndex := strings.LastIndex(activityId, "_")
+	if lastIndex == -1 {
+		err = &habit_share.InputError{StringToParse: activityId}
 		return
 	}
 
+	habitId = activityId[:lastIndex]
+	dateString := activityId[lastIndex+1:]
 	date, err = time.Parse(DateFormat, dateString)
 	if err != nil {
+		err = &habit_share.InputError{StringToParse: activityId}
 		return
 	}
 
@@ -248,6 +249,7 @@ func (a *HabitShareFile) CreateHabit(name string, owner string, frequency int) (
 }
 
 // CreateActivity implements habit_share.HabitsDatabase
+// logged should be the first moments of the day under UTC. If not we transform it anyway.
 func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status string) (string, error) {
 	// activity id will be defined as habit_date
 	habit, ok := a.Habits[habitId]
@@ -256,10 +258,17 @@ func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status
 	}
 
 	activityId := constructActivityId(habitId, logged)
+	// check if activity with that id already exists
+	// TODO this doesn't scale
+	for _, activity := range habit.Activities {
+		if activity.Id == activityId {
+			return activityId, nil
+		}
+	}
 	appended := append(habit.Activities, habit_share.Activity{
 		Id:      activityId,
 		HabitId: habitId,
-		Logged:  logged,
+		Logged:  time.Date(logged.Year(), logged.Month(), logged.Day(), 0, 0, 0, 0, time.UTC),
 		Status:  status,
 	})
 	// sort is ascending so later times are further down the array
@@ -267,6 +276,7 @@ func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status
 		return appended[i].Logged.Before(appended[j].Logged)
 	})
 	habit.Activities = appended
+	a.Habits[habitId] = habit
 
 	err := a.write()
 	if err != nil {
@@ -481,49 +491,53 @@ func (a *HabitShareFile) GetScore(habitId string) (int, error) {
 	// if count < frequency stop and return
 	// if i == 0 return
 	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	// Sunday is 0
 	diff := int(today.Weekday())
 	if diff == 0 {
 		diff = 7
 	}
+	totalScore := 0  // count for successes
+	weeklyCount := 0 // threshold for frequency (counts minimum and success)
 	// values outside the normal range are normalised day -1 goes to the previous month
 	// weekStart is at the END of Sunday. The first second of Monday hence the +1
-	weekStart := time.Date(today.Year(), now.Month(), now.Day()-int(today.Weekday())+1, 0, 0, 0, 0, today.Location())
+	weekStart := today.AddDate(0, 0, int(today.Weekday())+1)
 
 	index := len(habit.Activities) - 1
+	// loop for current week
 	for ; index >= 0; index-- {
-		// find first activity that is before or on the startDate
 		if habit.Activities[index].Logged.Before(weekStart) {
 			break
 		}
+		// assume this week is part of a streak
+		// find first activity that is before or on the startDate
+		// This is probably faster than binary search given distribution of requests
+		if habit.Activities[index].Status == "SUCCESS" {
+			totalScore++
+		}
 	}
 
-	totalScore := 0
-	weeklyScore := 0
-	weeklyCount := 0
-	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day()-7, 0, 0, 0, 0, weekStart.Location())
+	weekStart = weekStart.AddDate(0, 0, -7)
 	for ; index >= 0; index-- {
-		weeklyCount++
-		if habit.Activities[index].Status == "SUCCESS" {
-			weeklyScore++
-		}
-
 		if habit.Activities[index].Logged.Before(weekStart) {
 			if weeklyCount < habit.Frequency {
 				return totalScore, nil
 			}
-			totalScore += weeklyScore
-			weeklyCount, weeklyScore = 0, 0
-			weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day()-7, 0, 0, 0, 0, weekStart.Location())
+			weeklyCount = 0
+			weekStart = weekStart.AddDate(0, 0, -7)
+		}
+
+		weeklyCount++
+		if habit.Activities[index].Status == "SUCCESS" {
+			totalScore++
 		}
 	}
 
 	return totalScore, nil
 }
 
-// RenameHabit implements habit_share.HabitsDatabase
-func (a *HabitShareFile) RenameHabit(id string, newName string) error {
+// ChangeName implements habit_share.HabitsDatabase
+func (a *HabitShareFile) ChangeName(id string, newName string) error {
 	habit, ok := a.Habits[id]
 	if !ok {
 		return habit_share.HabitNotFoundError

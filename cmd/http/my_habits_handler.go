@@ -11,7 +11,7 @@ import (
 )
 
 func GetMyhabits(w http.ResponseWriter, r *http.Request) {
-	app, ok := injectApp(w, r);
+	app, ok := injectApp(w, r)
 	if !ok {
 		return
 	}
@@ -30,19 +30,20 @@ func GetMyhabits(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Marshalling failed")
 		log.Printf("Marshalling failed with %v", err)
 	}
+
+	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprint(w, string(res))
 }
 
 func PostMyHabits(w http.ResponseWriter, r *http.Request) {
 	// TODO could probably make middleware for this
-	headerContentTtype := r.Header.Get("Content-Type")
-	if !strings.HasPrefix(headerContentTtype, "application/json") {
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		fmt.Fprintf(w, "Content Type is not application/json")
 		return
 	}
 
-	app, ok := injectApp(w, r);
+	app, ok := injectApp(w, r)
 	if !ok {
 		return
 	}

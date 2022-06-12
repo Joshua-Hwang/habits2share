@@ -9,7 +9,9 @@ import (
 	"internal/habit_share_file"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -20,6 +22,8 @@ func main() {
 
 	webClientId := os.Getenv("GOOGLE_WEB_CLIENT_ID")
 	mobileClientId := os.Getenv("GOOGLE_MOBILE_CLIENT_ID")
+
+	log.SetFlags(log.LstdFlags | log.Llongfile)
 
 	authDatabase := &auth_file.AuthDatabaseFile{
 		SessionsFilepath: "sessions.csv",
@@ -77,14 +81,47 @@ func main() {
 	// How do you keep all this modular without burdening the client?
 	// GraphQL provides one such way. An exposed and powerful querying language
 	// the clients are able to use in a single request.
+	{
+		pathPrefix := "/habit/"
+		mux.HandleFunc(pathPrefix, sessionParser(BlockAnonymous(func(w http.ResponseWriter, r *http.Request) {
+			// get habitId
+			remainingUrl := strings.TrimPrefix(r.URL.EscapedPath(), pathPrefix)
+			if remainingUrl == r.URL.EscapedPath() {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "Path is malformed")
+				log.Printf("Something funky going on with trimming path")
+			}
+			habitId, remainingUrl, _ := strings.Cut(remainingUrl, "/")
+			// the slash is removed during cut
+			remainingUrl = fmt.Sprintf("/%s?%s", remainingUrl, r.URL.Query().Encode())
+			r.URL, _ = url.Parse(remainingUrl)
 
-	// POST to /habit/:habitId with status in body to register an activity
-	// GET to /habit/:habitId?limit=...&order=... works on the pagination of activities
-	// this endpoint also returns description, name and shared with
-	// GET /habit/:habitid/streak to get the number
+			app, ok := injectApp(w, r)
+			if !ok {
+				return
+			}
+			// TODO check user is allowed to see habit prior
+			habit, err := app.GetHabit(habitId)
+			if err != nil {
+				if err == habit_share.HabitNotFoundError {
+					http.NotFound(w, r)
+					return
+				}
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(w, "Failed to retrieve habit %v", err)
+				log.Printf("Failed to retrieve habit %v", err)
+			}
 
-	// TODO need a concept of user Id
-	// POST /user/userId
+			habitHandler := BuildHabitHandler(&habit)
+			habitHandler.ServeHTTP(w, r)
+		})));
+	}
+
+	{
+		//pathPrefix := "/user/"
+	}
+	// POST /user/:userId in body provide habit to share
+	// DELETE /user/:userId/habit/:habitId to unshare app
 
 	log.Printf("Listening on port %s", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), mux))

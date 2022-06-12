@@ -76,7 +76,7 @@ func TestHabit(t *testing.T) {
 			t.Fatal("expected no error got ", err)
 		}
 
-		err = habitShare.RenameHabit(habitId, "new name")
+		err = habitShare.ChangeName(habitId, "new name")
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}

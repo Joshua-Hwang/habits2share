@@ -1,50 +1,12 @@
 package habit_share_file
 
 import (
-	"internal/habit_share"
 	"os"
 	"testing"
-	"time"
 )
 
 var inputJson = "input.json"
 var outputJson = "output.json"
-
-var testUsers = map[string]User{
-	"testUser1": {
-		MyHabits:     map[string]struct{}{"testUser1_habitId1":struct{}{}},
-		SharedHabits: map[string]struct{}{"testUser2_habitId1":struct{}{}},
-	},
-	"testUser2": {
-		MyHabits:     map[string]struct{}{"testUser2_habitId1":struct{}{}},
-		SharedHabits: map[string]struct{}{},
-	},
-}
-
-var testHabits = map[string]HabitJson{
-	"testUser1_habitId1": {
-		Habit: habit_share.Habit{
-			Id:        "testUser1_habitId1",
-			Owner:     "testUser1",
-			Name:      "first habit",
-			Frequency: 3,
-			Archived:  false,
-		},
-		Activities: []habit_share.Activity{},
-	},
-	"testUser2_habitId1": {
-		Habit: habit_share.Habit{
-			Id:        "testUser2_habitId1",
-			Owner:     "testUser2",
-			Name:      "my first habit",
-			Frequency: 7,
-			Archived:  true,
-		},
-		Activities: []habit_share.Activity{
-			{Id: "1/1/1", HabitId: "habitId1", Logged: time.Now(), Status: "SUCCESS"},
-		},
-	},
-}
 
 func TestIo(t *testing.T) {
 	if _, err := os.Stat(outputJson); err == nil {
@@ -55,6 +17,7 @@ func TestIo(t *testing.T) {
 	}
 
 	t.Run("should write to a file", func(t *testing.T) {
+		testUsers, testHabits := generateTestData()
 		habitShare := HabitShareFile{Users: testUsers, Habits: testHabits}
 
 		err := habitShare.WriteToFile(outputJson)
@@ -83,6 +46,7 @@ func TestIo(t *testing.T) {
 	})
 
 	t.Run("should read from written file", func(t *testing.T) {
+		testUsers, testHabits := generateTestData()
 		// write again to output json to ensure tests are independent
 		orgHabitShare := HabitShareFile{Users: testUsers, Habits: testHabits}
 		err := orgHabitShare.WriteToFile(outputJson)
