@@ -64,6 +64,8 @@ func main() {
 
 	mux := MuxWrapper{ServeMux: http.NewServeMux(), Middleware: buildDependencies}
 
+	mux.Handle("/web/", http.StripPrefix("/web/", http.FileServer(http.Dir("./frontend/build"))))
+
 	mux.RegisterHandlers("/login", map[string]http.HandlerFunc{
 		"GET":  BuildGetLogin(webClientId),
 		"POST": PostLogin,
@@ -84,39 +86,35 @@ func main() {
 	// the clients are able to use in a single request.
 	{
 		pathPrefix := "/habit/"
-		mux.HandleFunc(pathPrefix, sessionParser(BlockAnonymous(func(w http.ResponseWriter, r *http.Request) {
-			// TODO either refactor or generate more general solution to this
-			// get habitId
-			remainingUrl := strings.TrimPrefix(r.URL.EscapedPath(), pathPrefix)
-			if remainingUrl == r.URL.EscapedPath() {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "Path is malformed")
-				log.Print("Something funky going on with trimming path", remainingUrl)
-			}
-			habitId, remainingUrl, _ := strings.Cut(remainingUrl, "/")
-			// the slash is removed during cut
-			remainingUrl = fmt.Sprintf("/%s?%s", remainingUrl, r.URL.Query().Encode())
-			r.URL, _ = url.Parse(remainingUrl)
+		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix,
+			sessionParser(BlockAnonymous(func(w http.ResponseWriter, r *http.Request) {
+				// TODO either refactor or generate more general solution to this
+				// get habitId
+				habitId, remainingUrl, _ := strings.Cut(r.URL.EscapedPath(), "/")
+				// the slash is removed during cut
+				remainingUrl = fmt.Sprintf("/%s?%s", remainingUrl, r.URL.Query().Encode())
+				r.URL, _ = url.Parse(remainingUrl)
 
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
-			// TODO check user is allowed to see habit prior retrieving it for performance
-			habit, err := app.GetHabit(habitId)
-			if err != nil {
-				if err == habit_share.HabitNotFoundError {
-					http.NotFound(w, r)
+				app, ok := injectApp(w, r)
+				if !ok {
 					return
 				}
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "Failed to retrieve habit %v", err)
-				log.Printf("Failed to retrieve habit %v", err)
-			}
+				// TODO check user is allowed to see habit prior retrieving it for performance
+				habit, err := app.GetHabit(habitId)
+				if err != nil {
+					if err == habit_share.HabitNotFoundError {
+						http.NotFound(w, r)
+						return
+					}
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprintf(w, "Failed to retrieve habit %v", err)
+					log.Printf("Failed to retrieve habit %v", err)
+				}
 
-			habitHandler := BuildHabitHandler(&habit)
-			habitHandler.ServeHTTP(w, r)
-		})))
+				habitHandler := BuildHabitHandler(&habit)
+				habitHandler.ServeHTTP(w, r)
+			})),
+		))
 	}
 
 	// TODO this doesn't work if other endpoints exist on this prefix

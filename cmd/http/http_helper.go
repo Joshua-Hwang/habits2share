@@ -19,6 +19,18 @@ func methodNotAllowedHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Method is not allowed")
 }
 
+func (mux *MuxWrapper) Handle(path string, handler http.Handler) {
+	mux.ServeMux.HandleFunc(path,
+		func(w http.ResponseWriter, r *http.Request) {
+			if mux.Middleware != nil {
+				handler = mux.Middleware(handler.ServeHTTP)
+			}
+
+			handler.ServeHTTP(w, r)
+		},
+	)
+}
+
 func (mux *MuxWrapper) HandleFunc(path string, handler func(http.ResponseWriter, *http.Request)) {
 	mux.ServeMux.HandleFunc(path,
 		func(w http.ResponseWriter, r *http.Request) {
