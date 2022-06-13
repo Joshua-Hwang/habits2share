@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 )
-func PostShareHabit(w http.ResponseWriter, r *http.Request) {
+func PostUserHabit(w http.ResponseWriter, r *http.Request) {
 	var userId string
 	var habitId string
 	// first split is an empty string because we start with /
@@ -40,7 +40,7 @@ func PostShareHabit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func DeleteShareHabit(w http.ResponseWriter, r *http.Request) {
+func DeleteUserHabit(w http.ResponseWriter, r *http.Request) {
 			var userId string
 			var habitId string
 			_, err := fmt.Sscanf(r.URL.EscapedPath(), "/user/%s/habit/%s", &userId, &habitId)
