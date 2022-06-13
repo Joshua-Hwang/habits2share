@@ -4,3 +4,4 @@ habits.json
 sessions.csv
 
 build/
+scripts/deploy.sh
