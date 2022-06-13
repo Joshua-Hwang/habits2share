@@ -4,6 +4,8 @@ This is a webserver for a habit sharing app.
 Currently it relies on a persistent file system.
 
 ## Running locally
+You need Golang to run the server and you need `npm` to build the frontend.
+
 In order to test the login flow you will need to generate a Google Cloud OAuth
 token. You may skip the login flow by following the steps below. In future this
 should not be necessary.
