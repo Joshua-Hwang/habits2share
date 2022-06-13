@@ -63,11 +63,6 @@ func main() {
 	sessionParser := BuildSessionParser("/login")
 
 	mux := MuxWrapper{ServeMux: http.NewServeMux(), Middleware: buildDependencies}
-	mux.RegisterHandlers("/", map[string]http.HandlerFunc{
-		"GET": func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "HI!")
-		},
-	})
 
 	mux.RegisterHandlers("/login", map[string]http.HandlerFunc{
 		"GET":  BuildGetLogin(webClientId),
