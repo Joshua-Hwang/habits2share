@@ -1,4 +1,4 @@
-package http
+package main
 
 import (
 	"context"
@@ -236,7 +236,6 @@ func BlockAnonymous(next http.HandlerFunc) http.HandlerFunc {
 
 func BuildUserIdGetter(r *http.Request) func() (string, error) {
 	return func() (string, error) {
-		log.Printf("OLD")
 		val := r.Context().Value(userIdKey)
 		if val == nil {
 			return "", nil

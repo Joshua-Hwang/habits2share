@@ -1,17 +1,18 @@
-package http
+package main
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
-	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 )
 
 func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
@@ -85,9 +86,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 
 			afterString := r.URL.Query().Get("after")
 			if afterString == "" {
-				// 7 days * 24 hrs = 168 hrs
-				d, _ := time.ParseDuration("-168h")
-				afterString = time.Now().Add(d).Format(habit_share_file.DateFormat)
+				afterString = time.Now().AddDate(0, 0, -7).Format(habit_share_file.DateFormat)
 			}
 			after, err := time.Parse(habit_share_file.DateFormat, afterString)
 			if err != nil {
@@ -101,7 +100,6 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			}
 			limit, err := strconv.Atoi(limitString)
 
-			log.Print(after, before, limit)
 			activities, hasMore, err := app.GetActivities(habit.Id, after, before, limit)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -109,6 +107,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				log.Printf("Something has gone wrong getting activities: %v", err)
 				return
 			}
+			// TODO change from RFC3339 to own date format
 			response := struct {
 				Activities []habit_share.Activity
 				HasMore    bool
