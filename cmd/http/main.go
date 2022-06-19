@@ -1,12 +1,12 @@
-package main
+package http
 
 import (
 	"context"
 	"fmt"
-	"internal/auth"
-	"internal/auth_file"
-	"internal/habit_share"
-	"internal/habit_share_file"
+	"github.com/Joshua-Hwang/habits2share/pkg/auth"
+	"github.com/Joshua-Hwang/habits2share/pkg/auth_file"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 	"log"
 	"net/http"
 	"net/url"

@@ -1,8 +1,8 @@
-package main
+package http
 
 import (
 	"fmt"
-	"internal/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 	"net/http"
 	"strings"
 )

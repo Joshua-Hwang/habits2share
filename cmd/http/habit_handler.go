@@ -1,11 +1,11 @@
-package main
+package http
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"internal/habit_share"
-	"internal/habit_share_file"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 	"io"
 	"log"
 	"net/http"
