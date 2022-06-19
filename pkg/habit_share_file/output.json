@@ -1,0 +1,45 @@
+{
+  "Users": {
+    "testUser1": {
+      "MyHabits": {
+        "testUser1_habitId1": {}
+      },
+      "SharedHabits": {
+        "testUser2_habitId1": {}
+      }
+    },
+    "testUser2": {
+      "MyHabits": {
+        "testUser2_habitId1": {}
+      },
+      "SharedHabits": {}
+    }
+  },
+  "Habits": {
+    "testUser1_habitId1": {
+      "Id": "testUser1_habitId1",
+      "Owner": "testUser1",
+      "SharedWith": null,
+      "Name": "first habit",
+      "Frequency": 3,
+      "Archived": false,
+      "Activities": []
+    },
+    "testUser2_habitId1": {
+      "Id": "testUser2_habitId1",
+      "Owner": "testUser2",
+      "SharedWith": null,
+      "Name": "my first habit",
+      "Frequency": 7,
+      "Archived": true,
+      "Activities": [
+        {
+          "Id": "testUser2_habitId1_2001-01-01",
+          "HabitId": "testUser2_habitId1",
+          "Logged": "2001-01-01T00:00:00Z",
+          "Status": "SUCCESS"
+        }
+      ]
+    }
+  }
+}
