@@ -38,8 +38,8 @@ function App({ interactor }: { interactor: Interactor }) {
     <MantineProvider
       theme={{
         // Override any other properties from default theme
-        fontFamily: "Open Sans, sans serif",
-        spacing: { xs: 15, sm: 20, md: 25, lg: 30, xl: 40 },
+        //fontFamily: "Open Sans, sans serif",
+        spacing: { xs: 2, sm: 5, md: 7, lg: 10, xl: 20 },
       }}
     >
       <SimpleGrid className="App" cols={1} spacing={0}>
@@ -51,7 +51,13 @@ function App({ interactor }: { interactor: Interactor }) {
               </Center>
             ) : (
               myHabits.map((habit) => {
-                return <HabitCard habit={habit} interactor={interactor} />;
+                return (
+                  <HabitCard
+                    key={habit.Id}
+                    habit={habit}
+                    interactor={interactor}
+                  />
+                );
               })
             )}
             <Button>Create a new habit</Button>
@@ -64,6 +70,7 @@ function App({ interactor }: { interactor: Interactor }) {
               sharedHabits.map((habit) => {
                 return (
                   <HabitCard
+                    key={habit.Id}
                     habit={habit}
                     interactor={interactor}
                     showOwner={true}

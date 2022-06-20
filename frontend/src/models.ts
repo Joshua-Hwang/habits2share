@@ -1,6 +1,8 @@
 // TODO generate this file from golang
 // https://github.com/tkrajina/typescriptify-golang-structs
 
+import { Dayjs } from "dayjs";
+
 export type Habit = {
   Id: string;
   Owner: string;
@@ -15,6 +17,6 @@ export type Status = "SUCCESS" | "MINIMUM" | "NOT_DONE";
 export type Activity = {
   Id: string;
   HabitId: string;
-  Logged: string;
+  Logged: Dayjs;
   Status: Status;
 };

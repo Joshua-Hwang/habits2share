@@ -260,22 +260,31 @@ func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status
 	activityId := constructActivityId(habitId, logged)
 	// check if activity with that id already exists
 	// TODO this doesn't scale
-	for _, activity := range habit.Activities {
+	toAppend := true
+	for i, activity := range habit.Activities {
 		if activity.Id == activityId {
-			return activityId, nil
+			if activity.Status == status {
+				return activityId, nil
+			}
+			// update status
+			habit.Activities[i].Status = status;
+			toAppend = false
 		}
 	}
-	appended := append(habit.Activities, habit_share.Activity{
-		Id:      activityId,
-		HabitId: habitId,
-		Logged:  time.Date(logged.Year(), logged.Month(), logged.Day(), 0, 0, 0, 0, time.UTC),
-		Status:  status,
-	})
-	// sort is ascending so later times are further down the array
-	sort.Slice(appended[:], func(i, j int) bool {
-		return appended[i].Logged.Before(appended[j].Logged)
-	})
-	habit.Activities = appended
+	if toAppend {
+		appended := append(habit.Activities, habit_share.Activity{
+			Id:      activityId,
+			HabitId: habitId,
+			Logged:  time.Date(logged.Year(), logged.Month(), logged.Day(), 0, 0, 0, 0, time.UTC),
+			Status:  status,
+		})
+		// sort is ascending so later times are further down the array
+		sort.Slice(appended[:], func(i, j int) bool {
+			return appended[i].Logged.Before(appended[j].Logged)
+		})
+		habit.Activities = appended
+	}
+
 	a.Habits[habitId] = habit
 
 	err := a.write()

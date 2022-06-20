@@ -1,9 +1,10 @@
+import dayjs from "dayjs";
 import { Interactor } from "./interactors";
 import { Habit, Activity } from "./models";
 
-type PublicPart<T> = {[K in keyof T]: T[K]}
+type PublicPart<T> = { [K in keyof T]: T[K] };
 
-export class MockInteractor implements PublicPart<Interactor> {
+export class MockInteractor /*implements PublicPart<Interactor>*/ {
   public async getMyHabits(): Promise<Array<Habit>> {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     return [
@@ -90,7 +91,7 @@ export class MockInteractor implements PublicPart<Interactor> {
           {
             Id: "dfa",
             HabitId: "1234",
-            Logged: "2022-06-20T00:00:00Z",
+            Logged: dayjs("2022-06-20T00:00:00Z"),
             Status: "SUCCESS",
           },
         ],

@@ -75,8 +75,8 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 
 			beforeString := r.URL.Query().Get("before")
 			if beforeString == "" {
-				// 7 days * 24 hrs = 168 hrs
-				beforeString = time.Now().Format(habit_share_file.DateFormat)
+				// before is not inclusive but we'd like today to be displayed
+				beforeString = time.Now().AddDate(0, 0, 1).Format(habit_share_file.DateFormat)
 			}
 			before, err := time.Parse(habit_share_file.DateFormat, beforeString)
 			if err != nil {
@@ -88,6 +88,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			if afterString == "" {
 				afterString = time.Now().AddDate(0, 0, -7).Format(habit_share_file.DateFormat)
 			}
+
 			after, err := time.Parse(habit_share_file.DateFormat, afterString)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
@@ -163,9 +164,12 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 
 			activityId, err := app.CreateActivity(habit.Id, parsedLog, newActivity.Status)
 			if err != nil {
-				if inputError:= (*habit_share.InputError)(nil); errors.As(err, &inputError) {
+				if inputError := (*habit_share.InputError)(nil); errors.As(err, &inputError) {
 					w.WriteHeader(http.StatusBadRequest)
 					fmt.Fprintf(w, "Bad Request, Status was not one of the defined enum values")
+				} else if errors.Is(err, habit_share.PermissionDeniedError) {
+					w.WriteHeader(http.StatusForbidden)
+					fmt.Fprintf(w, "You do not have permissions for this habit")
 				} else {
 					w.WriteHeader(http.StatusInternalServerError)
 					fmt.Fprintf(w, "Failed to create activity")

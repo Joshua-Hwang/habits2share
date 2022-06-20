@@ -29,3 +29,4 @@ curl --cookie __Host-SESSIONID='uuid mentioned before' localhost:8080...
 * [X] Sharing habits
 * [ ] Document API
 * [ ] All users are considered friends. Provide a friending system.
+* [ ] Loading react components aren't same size as the component they will replace causing pop-in
