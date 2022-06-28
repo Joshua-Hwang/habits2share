@@ -3,11 +3,14 @@ package habit_share_file
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"io"
+	"log"
 	"os"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 
 	"github.com/google/uuid"
 )
@@ -18,7 +21,7 @@ const DateFormat = "2006-01-02"
 habit_share requires a single id to identity the activity in order for our
 system to work the activity id contains the habitId
 */
-func constructActivityId(habitId string, logged time.Time) string {
+func ConstructActivityId(habitId string, logged time.Time) string {
 	return fmt.Sprintf("%s_%s", habitId, logged.Format(DateFormat))
 }
 
@@ -59,26 +62,31 @@ type User struct {
 }
 
 type HabitShareFile struct {
-	Users    map[string]User
-	Habits   map[string]HabitJson
-	filename string
+	Users  map[string]User
+	Habits map[string]HabitJson
+	file   *os.File
 }
 
 var _ habit_share.HabitsDatabase = (*HabitShareFile)(nil)
 
 func HabitShareFromFile(filename string) (*HabitShareFile, error) {
 	var habitShareFile HabitShareFile
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0600)
 
-	content, err := os.ReadFile(filename)
+	content, err := io.ReadAll(file);
 	if err != nil {
-		if os.IsNotExist(err) {
-			// file does not exist yet
-			habitShareFile.Habits = make(map[string]HabitJson, 0)
-			habitShareFile.Users = make(map[string]User, 0)
-			habitShareFile.filename = filename
-			return &habitShareFile, nil
-		}
 		return nil, err
+	}
+	if len(content) == 0 {
+		// file does not exist yet
+		habitShareFile.Habits = make(map[string]HabitJson, 0)
+		habitShareFile.Users = make(map[string]User, 0)
+
+		if err != nil {
+			return nil, err
+		}
+		habitShareFile.file = file
+		return &habitShareFile, nil
 	}
 
 	err = json.Unmarshal(content, &habitShareFile)
@@ -87,20 +95,25 @@ func HabitShareFromFile(filename string) (*HabitShareFile, error) {
 	}
 
 	// remember where we got this from
-	habitShareFile.filename = filename
+	habitShareFile.file = file
 
 	return &habitShareFile, nil
 }
 
 // it's the responsibility of the server to WriteToFile
-func (a *HabitShareFile) WriteToFile(filename string) error {
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
+func (a *HabitShareFile) WriteToFile(file *os.File) error {
+	jsonString, err := json.MarshalIndent(a, "", "  ")
+	// TODO this is fine but still risk of collisions as not atomic.
+	// Add mutex
+	// Race conditions be nasty. Need some way to handle changes serially.
+	err = file.Truncate(0)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-
-	jsonString, err := json.MarshalIndent(a, "", "  ")
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return err
+	}
 	_, err = file.Write(jsonString)
 	if err != nil {
 		return err
@@ -110,8 +123,8 @@ func (a *HabitShareFile) WriteToFile(filename string) error {
 }
 
 func (a *HabitShareFile) write() error {
-	if a.filename != "" {
-		err := a.WriteToFile(a.filename)
+	if a.file != nil {
+		err := a.WriteToFile(a.file)
 		if err != nil {
 			return err
 		}
@@ -257,7 +270,7 @@ func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status
 		return "", habit_share.HabitNotFoundError
 	}
 
-	activityId := constructActivityId(habitId, logged)
+	activityId := ConstructActivityId(habitId, logged)
 	// check if activity with that id already exists
 	// TODO this doesn't scale
 	toAppend := true
@@ -267,7 +280,7 @@ func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status
 				return activityId, nil
 			}
 			// update status
-			habit.Activities[i].Status = status;
+			habit.Activities[i].Status = status
 			toAppend = false
 		}
 	}
@@ -389,6 +402,11 @@ func (a *HabitShareFile) GetActivities(
 	before time.Time,
 	limit int,
 ) (activities []habit_share.Activity, hasMore bool, err error) {
+	if before.Before(after) {
+		return nil, false, &habit_share.InputError{
+			StringToParse: fmt.Sprintf("before=%s after=%s", before, after),
+		}
+	}
 	habit, ok := a.Habits[habitId]
 	if !ok {
 		return nil, false, habit_share.HabitNotFoundError
@@ -431,7 +449,7 @@ func (a *HabitShareFile) GetMyHabits(owner string, limit int, archived bool) ([]
 	// assumes the user is valid thus it must not be in the database yet
 	user, ok := a.Users[owner]
 	if !ok {
-		return make([]habit_share.Habit, 0), habit_share.UserNotFoundError
+		return make([]habit_share.Habit, 0), nil
 	}
 
 	myHabits := make([]habit_share.Habit, 0, len(user.MyHabits))
@@ -458,9 +476,10 @@ func (a *HabitShareFile) GetMyHabits(owner string, limit int, archived bool) ([]
 
 // GetSharedHabits implements habit_share.HabitsDatabase
 func (a *HabitShareFile) GetSharedHabits(owner string, limit int) ([]habit_share.Habit, error) {
+	// assumes the user is valid thus it must not be in the database yet
 	user, ok := a.Users[owner]
 	if !ok {
-		return nil, habit_share.UserNotFoundError
+		return make([]habit_share.Habit, 0), nil
 	}
 
 	sharedHabits := make([]habit_share.Habit, 0, len(user.SharedHabits))
@@ -501,20 +520,20 @@ func (a *HabitShareFile) GetScore(habitId string) (int, error) {
 	// if i == 0 return
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	// Sunday is 0
-	diff := int(today.Weekday())
-	if diff == 0 {
-		diff = 7
-	}
 	totalScore := 0  // count for successes
 	weeklyCount := 0 // threshold for frequency (counts minimum and success)
 	// values outside the normal range are normalised day -1 goes to the previous month
-	// weekStart is at the END of Sunday. The first second of Monday hence the +1
-	weekStart := today.AddDate(0, 0, int(today.Weekday())+1)
+	// weekStart is at the END of Sunday. The first second of Monday hence the -1 == +6 mod 7
+	// start of this week
+	weekStart := today.AddDate(0, 0, -((int(today.Weekday()) + 6) % 7))
 
 	index := len(habit.Activities) - 1
-	// loop for current week
+	// loop for current week doesn't matter what the score is this week assume it's part of the streak
 	for ; index >= 0; index-- {
+		if habit.Activities[index].Status == "NOT_DONE" {
+			continue
+		}
+
 		if habit.Activities[index].Logged.Before(weekStart) {
 			break
 		}
@@ -528,7 +547,13 @@ func (a *HabitShareFile) GetScore(habitId string) (int, error) {
 
 	weekStart = weekStart.AddDate(0, 0, -7)
 	for ; index >= 0; index-- {
+		// TODO don't store NOT_DONE just delete them
+		if habit.Activities[index].Status == "NOT_DONE" {
+			continue
+		}
+
 		if habit.Activities[index].Logged.Before(weekStart) {
+			// the final week (even if incomplete) is considered part of the streak
 			if weeklyCount < habit.Frequency {
 				return totalScore, nil
 			}

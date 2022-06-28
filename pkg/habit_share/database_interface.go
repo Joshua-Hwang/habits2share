@@ -36,7 +36,7 @@ var _ error = (*InputError)(nil)
 
 // Error implements error
 func (e *InputError) Error() string {
-	return fmt.Sprintf("Failed to parse status, input was %s", e.StringToParse)
+	return fmt.Sprintf("Failed to parse input, input was %s", e.StringToParse)
 }
 
 const (

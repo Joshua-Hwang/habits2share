@@ -64,20 +64,23 @@ func main() {
 
 	mux := MuxWrapper{ServeMux: http.NewServeMux(), Middleware: buildDependencies}
 
-	mux.Handle("/web/", http.StripPrefix("/web/", http.FileServer(http.Dir("./frontend/build"))))
+	mux.Handle("/web/", sessionParser(BlockAnonymous(
+		BuildGetLogin(webClientId, "/web/"), // TODO this isn't technically nice
+		http.StripPrefix("/web/", http.FileServer(http.Dir("./frontend/build"))).ServeHTTP,
+	)))
 
 	mux.RegisterHandlers("/login", map[string]http.HandlerFunc{
-		"GET":  BuildGetLogin(webClientId),
+		"GET":  BuildGetLogin(webClientId, "/web"),
 		"POST": PostLogin,
 	})
 
 	mux.RegisterHandlers("/my/habits", map[string]http.HandlerFunc{
-		"GET":  sessionParser(BlockAnonymous(GetMyhabits)),
-		"POST": sessionParser(BlockAnonymous(PostMyHabits)),
+		"GET":  sessionParser(BlockAnonymous(nil, GetMyhabits)),
+		"POST": sessionParser(BlockAnonymous(nil, PostMyHabits)),
 	})
 	// TODO if performance is an issue create an /all/habits
 	mux.RegisterHandlers("/shared/habits", map[string]http.HandlerFunc{
-		"GET": sessionParser(BlockAnonymous(GetSharedHabits)),
+		"GET": sessionParser(BlockAnonymous(nil, GetSharedHabits)),
 	})
 
 	// TODO if performance is an issue return activities in same batch as habits
@@ -87,7 +90,7 @@ func main() {
 	{
 		pathPrefix := "/habit/"
 		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix,
-			sessionParser(BlockAnonymous(func(w http.ResponseWriter, r *http.Request) {
+			sessionParser(BlockAnonymous(nil, func(w http.ResponseWriter, r *http.Request) {
 				// TODO either refactor or generate more general solution to this
 				// get habitId
 				habitId, remainingUrl, _ := strings.Cut(r.URL.EscapedPath(), "/")
@@ -119,8 +122,8 @@ func main() {
 
 	// TODO this doesn't work if other endpoints exist on this prefix
 	mux.RegisterHandlers("/user/", map[string]http.HandlerFunc{
-		"POST":   sessionParser(BlockAnonymous(PostUserHabit)),
-		"DELETE": sessionParser(BlockAnonymous(DeleteUserHabit)),
+		"POST":   sessionParser(BlockAnonymous(nil, PostUserHabit)),
+		"DELETE": sessionParser(BlockAnonymous(nil, DeleteUserHabit)),
 	})
 
 	log.Printf("Listening on port %s", port)

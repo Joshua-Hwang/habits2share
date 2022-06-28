@@ -48,30 +48,6 @@ func (a *App) habitSharedCheck(habitId string) error {
 
 // ArchiveHabit implements HabitsDatabase
 func (a *App) ArchiveHabit(id string) error {
-	// some options for permissions checks here
-	// 1. auth service has access to the current user
-	// 2. provide a hook as a parameter (this becomes annoying when more parameters are needed)
-	// 3. no permissions for this at all. Rely on main to perform checks.
-	// I'm liking option 1. Though the auth service is recreated every time the
-	// connection to the file doesn't have to be.
-	// I'd rather not do option 2 as it sounds tedious
-	// Option 3 sounds like I'm shifting business logic to main
-
-	// "But user now becomes an important parameter in this function which is obfuscated by the auth."
-	// Yes but those that depend on this can read the documentation/code to
-	// figure out how to get this function working.
-	// additionally the main function will have access to the habits database. it
-	// should be noted that might go against the "plugin" architecture if the
-	// main function manages to put the database in an inconsistent state. I
-	// don't believe that is possible with the current functionality the habits
-	// database provides
-
-	// note for future ensure each operation does not result in a incomplete
-	// state OR document how to fix the state.
-
-	// another way to look at it is that auth is just the state of the headers
-	// this state does not change for a while so exists as a property of App
-	// instead of a parameter
 	if err := a.habitOwnerCheck(id); err != nil {
 		return err
 	}

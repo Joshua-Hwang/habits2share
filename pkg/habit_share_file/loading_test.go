@@ -20,7 +20,13 @@ func TestIo(t *testing.T) {
 		testUsers, testHabits := generateTestData()
 		habitShare := HabitShareFile{Users: testUsers, Habits: testHabits}
 
-		err := habitShare.WriteToFile(outputJson)
+		file, err := os.OpenFile(outputJson, os.O_RDWR | os.O_CREATE, 0600)
+		if err != nil {
+			t.Error("during setup failed to open file got: ", err)
+		}
+		defer file.Close()
+
+		err = habitShare.WriteToFile(file)
 		if err != nil {
 			t.Error("expected error to be nil got: ", err)
 		}
@@ -49,7 +55,14 @@ func TestIo(t *testing.T) {
 		testUsers, testHabits := generateTestData()
 		// write again to output json to ensure tests are independent
 		orgHabitShare := HabitShareFile{Users: testUsers, Habits: testHabits}
-		err := orgHabitShare.WriteToFile(outputJson)
+
+		file, err := os.OpenFile(outputJson, os.O_RDWR | os.O_CREATE, 0600)
+		if err != nil {
+			t.Error("during setup failed to open file got: ", err)
+		}
+		defer file.Close()
+
+		err = orgHabitShare.WriteToFile(file)
 		if err != nil {
 			t.Error("expected error to be nil got: ", err)
 		}

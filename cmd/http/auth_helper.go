@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/Joshua-Hwang/habits2share/pkg/auth"
-	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/auth"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 
 	"github.com/google/uuid"
 )
@@ -17,16 +19,17 @@ const sessionCookieName = "__Host-SESSIONID"
 const sessionTtl = time.Duration(24 * 60 * 60 * 1000 * 1000 * 1000)
 const cookieTtl = 365 * 24 * 60 * 60
 
-func BuildGetLogin(webClientId string) http.HandlerFunc {
+func BuildGetLogin(webClientId string, redirectUrl string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, fmt.Sprintf(`
+		fmt.Fprintf(w, `
 <html>
 	<body>
 		<script src="https://accounts.google.com/gsi/client" async defer></script>
 		<div id="g_id_onload"
 			data-client_id="%s"
 			data-auto_prompt="false"
-			data-login_uri="/login"
+			data-login_uri="/login?redirect_url=%s"
+			data-context="signin"
 		></div>
 		<div class="g_id_signin"
 			data-type="standard"
@@ -38,7 +41,7 @@ func BuildGetLogin(webClientId string) http.HandlerFunc {
 		></div>
 	</body>
 </html>
-`, webClientId))
+`, webClientId, url.QueryEscape(redirectUrl))
 	}
 }
 
@@ -104,7 +107,9 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		MaxAge:   cookieTtl,
 	})
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	redirectUrl := r.URL.Query().Get("redirect_url")
+	http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
 }
 
 func buildSessionKey(sessionId string) string {
@@ -137,7 +142,6 @@ func BuildSessionParser(redirectUrl string) func(http.HandlerFunc) http.HandlerF
 				if err != http.ErrNoCookie {
 					log.Printf("Unexpected error with cookie: %s", err)
 				}
-				log.Printf("No cookie found")
 			} else {
 				sessionId, err := uuid.Parse(sessionCookie.Value)
 				if err != nil {
@@ -191,7 +195,15 @@ func BuildSessionParser(redirectUrl string) func(http.HandlerFunc) http.HandlerF
 	}
 }
 
-func BlockAnonymous(next http.HandlerFunc) http.HandlerFunc {
+func BlockAnonymous(redirectPage http.HandlerFunc, next http.HandlerFunc) http.HandlerFunc {
+	var blockingResponse http.HandlerFunc = redirectPage
+	if blockingResponse == nil {
+		blockingResponse = func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprintf(w, "Anonymous access forbidden")
+		}
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		authService, ok := r.Context().Value(authServiceKey).(habit_share.AuthInterface)
 		if !ok {
@@ -203,8 +215,7 @@ func BlockAnonymous(next http.HandlerFunc) http.HandlerFunc {
 
 		if _, err := authService.GetCurrentUser(); err != nil {
 			if err == habit_share.UserNotFoundError {
-				w.WriteHeader(http.StatusForbidden)
-				fmt.Fprintf(w, "Anonymous access forbidden")
+				blockingResponse(w, r)
 				return
 			} else {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -221,8 +232,7 @@ func BlockAnonymous(next http.HandlerFunc) http.HandlerFunc {
 		}
 		if _, err := app.Auth.GetCurrentUser(); err != nil {
 			if err == habit_share.UserNotFoundError {
-				w.WriteHeader(http.StatusForbidden)
-				fmt.Fprintf(w, "Anonymous access forbidden")
+				blockingResponse(w, r)
 				return
 			} else {
 				w.WriteHeader(http.StatusInternalServerError)
