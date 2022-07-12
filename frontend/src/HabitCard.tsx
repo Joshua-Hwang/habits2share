@@ -6,7 +6,6 @@ import {
   Divider,
   Group,
   Loader,
-  Modal,
   Space,
   Text,
 } from "@mantine/core";
@@ -14,8 +13,9 @@ import { useEffect, useReducer, useState } from "react";
 import { Interactor } from "./interactors";
 import { Activity, Habit, Status } from "./models";
 import dayjs, { Dayjs } from "dayjs";
-import { FaEdit } from "react-icons/fa";
+import { FaEdit, FaShareSquare } from "react-icons/fa";
 import { HabitEditorModal } from "./HabitEditor";
+import { HabitSharerModal } from "./HabitSharer";
 
 export function SevenDayDisplay({
   activities,
@@ -108,21 +108,25 @@ export function HabitCard({
   disabled,
 }: {
   habit: Habit;
-  setHabit?: (habit: Habit) => Promise<void>;
+  setHabit?: (
+    habit: Habit,
+    args?: { dontUpdateServer: boolean }
+  ) => Promise<void>;
   onArchive?: () => Promise<void>;
   interactor: Interactor;
   showOwner?: boolean;
   disabled?: boolean;
 }) {
   const DEBUG = false;
-  const [modalOpened, setModalOpened] = useState(false);
+  const [editModalOpened, setEditModalOpened] = useState(false);
+  const [shareModalOpened, setShareModalOpened] = useState(false);
 
   const [loadingDates, setLoadingDates] = useState(true);
 
   const [score, setScore] = useState(-1); // -1 is sentinel value
   const [activitiesThisWeek, setActivitiesThisWeek] = useState(-1);
 
-  const [activities, dispatch] = useReducer(
+  const [activities, activitiesDispatch] = useReducer(
     (
       arr: Array<Activity>,
       input:
@@ -169,6 +173,7 @@ export function HabitCard({
   );
 
   useEffect(() => {
+    // TODO this could be handled with a single call to /habit/:habitId
     interactor
       .getActivities(habit.Id, {
         after: dayjs().subtract(7, "days").format("YYYY-MM-DD"),
@@ -176,7 +181,7 @@ export function HabitCard({
       })
       .then(({ Activities }) => {
         // NOTE activities are ordered ascending on unix time
-        dispatch({ action: "overwrite", array: Activities });
+        activitiesDispatch({ action: "overwrite", array: Activities });
 
         // start of week is technically Sunday but I think it's Monday
         const startOfWeek = dayjs().startOf("week").add(1, "day");
@@ -198,32 +203,63 @@ export function HabitCard({
   }, [habit.Id, interactor]);
 
   // number done this week
+  // TODO there is a habit editor modal for each card. This could be a performance hit
+  // Create one global habit editor modal and each card updates that
   return (
     <Card key={habit.Id}>
+      <HabitSharerModal
+        habit={habit}
+        onShare={async (userId) => {
+          await setHabit?.(
+            { ...habit, SharedWith: { ...habit.SharedWith, [userId]: {} } },
+            { dontUpdateServer: true }
+          );
+          await interactor.shareHabit(habit.Id, userId);
+        }}
+        onUnshare={async (userId) => {
+          const { [userId]: _userId, ...newSharedWith } = habit.SharedWith;
+          await setHabit?.(
+            { ...habit, SharedWith: newSharedWith },
+            { dontUpdateServer: true }
+          );
+          await interactor.unshareHabit(habit.Id, userId);
+        }}
+        opened={shareModalOpened}
+        onClose={() => setShareModalOpened(false)}
+      />
       <HabitEditorModal
-        name={habit.Name}
-        frequency={habit.Frequency}
+        habit={habit}
+        interactor={interactor}
         onSubmit={async ({ name, frequency }) => {
           await setHabit?.({ ...habit, Name: name, Frequency: frequency });
-          setModalOpened(false);
+          setEditModalOpened(false);
         }}
-        opened={modalOpened}
-        onClose={() => setModalOpened(false)}
+        opened={editModalOpened}
+        onClose={() => setEditModalOpened(false)}
         onArchive={async () => {
           await onArchive?.();
-          setModalOpened(false);
+          setEditModalOpened(false);
         }}
       />
       <Group position="apart">
         <Text>{habit.Name}</Text>
         {setHabit && (
-          <ActionIcon
-            onClick={() => {
-              setModalOpened(true);
-            }}
-          >
-            <FaEdit />
-          </ActionIcon>
+          <Group>
+            <ActionIcon
+              onClick={() => {
+                setShareModalOpened(true);
+              }}
+            >
+              <FaShareSquare />
+            </ActionIcon>
+            <ActionIcon
+              onClick={() => {
+                setEditModalOpened(true);
+              }}
+            >
+              <FaEdit />
+            </ActionIcon>
+          </Group>
         )}
       </Group>
       <Group>
@@ -237,8 +273,16 @@ export function HabitCard({
           This Week: {activitiesThisWeek === -1 ? "..." : activitiesThisWeek}/
           {habit.Frequency}
         </Text>
-        <Divider sx={{ height: "auto" }} orientation="vertical" />
+        <Divider style={{ height: "auto" }} orientation="vertical" />
         <Text size="xs">Score: {score === -1 ? "..." : score}</Text>
+        {Object.keys(habit.SharedWith).length > 0 && (
+          <>
+            <Divider style={{ height: "auto" }} orientation="vertical" />
+            <Text size="xs">
+              Shared with: {Object.keys(habit.SharedWith).length}
+            </Text>
+          </>
+        )}
         {DEBUG && (
           <>
             <Divider sx={{ height: "auto" }} orientation="vertical" />
@@ -271,7 +315,7 @@ export function HabitCard({
               // if the day is equal then change the existing entry then return
               if (day.isSame(activities[i].Logged, "day")) {
                 if (activities[i].Status !== status) {
-                  dispatch({
+                  activitiesDispatch({
                     action: "replace",
                     index: i,
                     value: { ...activities[i], Status: status },
@@ -288,7 +332,7 @@ export function HabitCard({
               }
               // if the day is after activities[i] then we need to splice to insert then return
               if (day.isBefore(activities[i].Logged)) {
-                dispatch({
+                activitiesDispatch({
                   action: "insert",
                   index: i,
                   value: {
@@ -305,7 +349,7 @@ export function HabitCard({
               }
             }
             // if we're here then the day is after all activities so push to end and return
-            dispatch({
+            activitiesDispatch({
               action: "append",
               value: {
                 Id: "local",

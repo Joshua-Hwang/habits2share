@@ -65,6 +65,7 @@ var _ auth.AuthDatabase = (*AuthDatabaseFile)(nil)
 
 // TODO This is so inefficient as we're iterating over a list to find the email
 func (a *AuthDatabaseFile) GetUserIdFromEmail(ctx context.Context, email string) (string, error) {
+	// TODO this is not thread safe. Will need mutex.
 	accountsFile, err := os.Open(a.AccountsFilepath)
 	if err != nil {
 		return "", err

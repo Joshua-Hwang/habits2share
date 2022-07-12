@@ -44,6 +44,7 @@ func main() {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
+			ctx = context.WithValue(ctx, dbKey, habitsDatabase)
 			ctx = context.WithValue(ctx, authDbKey, authDatabase)
 			ctx = context.WithValue(ctx, tokenParserKey, tokenParser)
 
@@ -64,6 +65,14 @@ func main() {
 
 	mux := MuxWrapper{ServeMux: http.NewServeMux(), Middleware: buildDependencies}
 
+	mux.RegisterHandlers("/healthcheck", map[string]http.HandlerFunc{
+		// TODO make this more like a deepcheck
+		"HEAD": func(w http.ResponseWriter, r *http.Request) {
+			// Uses the HEAD command for uptime service I use but can be changed easily
+			return
+		},
+	})
+
 	mux.Handle("/web/", sessionParser(BlockAnonymous(
 		BuildGetLogin(webClientId, "/web/"), // TODO this isn't technically nice
 		http.StripPrefix("/web/", http.FileServer(http.Dir("./frontend/build"))).ServeHTTP,
@@ -78,6 +87,10 @@ func main() {
 		"GET":  sessionParser(BlockAnonymous(nil, GetMyhabits)),
 		"POST": sessionParser(BlockAnonymous(nil, PostMyHabits)),
 	})
+	mux.RegisterHandlers("/my/habits/upload", map[string]http.HandlerFunc{
+		"POST": sessionParser(BlockAnonymous(nil, PostMyHabitsImport)),
+	})
+
 	// TODO if performance is an issue create an /all/habits
 	mux.RegisterHandlers("/shared/habits", map[string]http.HandlerFunc{
 		"GET": sessionParser(BlockAnonymous(nil, GetSharedHabits)),

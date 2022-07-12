@@ -117,4 +117,30 @@ export class Interactor {
       method: "DELETE",
     });
   }
+
+  public async shareHabit(habitId: string, userId: string): Promise<void> {
+    await fetch(`${this.baseUrl}/user/${encodeURIComponent(userId)}/habit/${habitId}`, {
+      method: "POST",
+    });
+  }
+
+  public async unshareHabit(habitId: string, userId: string): Promise<void> {
+    await fetch(`${this.baseUrl}/user/${encodeURIComponent(userId)}/habit/${habitId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async importHabits(csv: string): Promise<string[]> {
+    const res = await fetch(`${this.baseUrl}/my/habits/upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/csv",
+      },
+      body: csv,
+    });
+
+    // TODO handle errors
+    const habitIds = await res.text();
+    return habitIds.split("\n");
+  }
 }

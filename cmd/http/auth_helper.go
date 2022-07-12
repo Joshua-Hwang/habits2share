@@ -142,6 +142,9 @@ func BuildSessionParser(redirectUrl string) func(http.HandlerFunc) http.HandlerF
 				if err != http.ErrNoCookie {
 					log.Printf("Unexpected error with cookie: %s", err)
 				}
+				// no cookie thus anonymous
+				next(w, r)
+				return
 			} else {
 				sessionId, err := uuid.Parse(sessionCookie.Value)
 				if err != nil {
@@ -205,11 +208,8 @@ func BlockAnonymous(redirectPage http.HandlerFunc, next http.HandlerFunc) http.H
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		authService, ok := r.Context().Value(authServiceKey).(habit_share.AuthInterface)
+		authService, ok := injectAuth(w, r)
 		if !ok {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "Unexpected error occurred")
-			log.Printf("Dependency injection failed for AuthService")
 			return
 		}
 

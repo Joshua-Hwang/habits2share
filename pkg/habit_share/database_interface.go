@@ -40,9 +40,9 @@ func (e *InputError) Error() string {
 }
 
 const (
-	activitySuccess = "SUCCESS"
-	activityMinimum = "MINIMUM"
-	activityNotDone = "NOT_DONE"
+	ActivitySuccess = "SUCCESS"
+	ActivityMinimum = "MINIMUM"
+	ActivityNotDone = "NOT_DONE"
 )
 
 type HabitsDatabase interface {

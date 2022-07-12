@@ -85,9 +85,9 @@ func (a *App) CreateActivity(habitId string, logged time.Time, status string) (s
 		return "", err
 	}
 
-	if status != activitySuccess &&
-		status != activityMinimum &&
-		status != activityNotDone {
+	if status != ActivitySuccess &&
+		status != ActivityMinimum &&
+		status != ActivityNotDone {
 		return "", &InputError{StringToParse: status}
 	}
 

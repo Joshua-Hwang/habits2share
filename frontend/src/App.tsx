@@ -1,30 +1,27 @@
-import React, { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import {
-  ActionIcon,
   Button,
-  Card,
   Center,
-  Container,
   Divider,
+  Grid,
   Group,
   Loader,
   MantineProvider,
-  Modal,
   ScrollArea,
   SimpleGrid,
   Stack,
-  Text,
-  TextInput,
 } from "@mantine/core";
 import { Interactor } from "./interactors";
 import { Habit } from "./models";
 import { HabitCard } from "./HabitCard";
 import { HabitCreatorModal } from "./HabitCreator";
-import { FaPlusCircle } from "react-icons/fa";
+import { FaFileImport, FaPlusCircle } from "react-icons/fa";
 import { BinarySearch } from "./util/BinarySearch";
+import { HabitImporterModal } from "./HabitImporter";
 
 function App({ interactor }: { interactor: Interactor }) {
-  const [modalOpened, setModalOpened] = useState(false);
+  const [newHabitModalOpened, setNewHabitModalOpened] = useState(false);
+  const [importHabitModalOpened, setImportHabitModalOpened] = useState(false);
 
   const [loadingMyHabits, setLoadingMyHabits] = useState(true);
   const [myHabits, dispatchMyHabits] = useReducer(
@@ -96,6 +93,19 @@ function App({ interactor }: { interactor: Interactor }) {
         spacing: { xs: 2, sm: 5, md: 7, lg: 10, xl: 20 },
       }}
     >
+      <HabitImporterModal
+        onSubmit={async (csv) => {
+          // We could the habit ids and fetch each habit
+          // We could also have the upload endpoint return all habits
+          // instead it's easier to grab all the habits again
+          await interactor.importHabits(csv);
+
+          const arr = await interactor.getMyHabits();
+          dispatchMyHabits({ action: "overwrite", arr });
+        }}
+        opened={importHabitModalOpened}
+        onClose={() => setImportHabitModalOpened(false)}
+      />
       <HabitCreatorModal
         onSubmit={async ({ name, frequency }) => {
           setLoadingMyHabits(true);
@@ -115,10 +125,10 @@ function App({ interactor }: { interactor: Interactor }) {
           });
 
           setLoadingMyHabits(false);
-          setModalOpened(false);
+          setNewHabitModalOpened(false);
         }}
-        opened={modalOpened}
-        onClose={() => setModalOpened(false)}
+        opened={newHabitModalOpened}
+        onClose={() => setNewHabitModalOpened(false)}
       />
       <SimpleGrid
         sx={(theme) => ({
@@ -131,13 +141,28 @@ function App({ interactor }: { interactor: Interactor }) {
       >
         <ScrollArea>
           <Stack style={{ padding: "1em" }}>
-            <Button
-              leftIcon={<FaPlusCircle />}
-              color="green"
-              onClick={() => setModalOpened(true)}
-            >
-              Create a new habit
-            </Button>
+            <Grid columns={6} grow>
+              <Grid.Col span={1}>
+                <Button
+                  fullWidth
+                  leftIcon={<FaFileImport />}
+                  color="green"
+                  onClick={() => setImportHabitModalOpened(true)}
+                >
+                  Import CSV
+                </Button>
+              </Grid.Col>
+              <Grid.Col span={5}>
+                <Button
+                  fullWidth
+                  leftIcon={<FaPlusCircle />}
+                  color="green"
+                  onClick={() => setNewHabitModalOpened(true)}
+                >
+                  Create a new habit
+                </Button>
+              </Grid.Col>
+            </Grid>
             {loadingMyHabits ? (
               <Center>
                 <Loader />
@@ -148,9 +173,15 @@ function App({ interactor }: { interactor: Interactor }) {
                   <HabitCard
                     key={habit.Id}
                     habit={habit}
-                    setHabit={async (habit) => {
+                    setHabit={async (habit, args) => {
                       // TODO handle errors
-                      await interactor.updateHabit(habit.Id, habit.Name, habit.Frequency);
+                      if (!args?.dontUpdateServer) {
+                        await interactor.updateHabit(
+                          habit.Id,
+                          habit.Name,
+                          habit.Frequency
+                        );
+                      }
                       dispatchMyHabits({
                         action: "replace",
                         index,
@@ -162,7 +193,7 @@ function App({ interactor }: { interactor: Interactor }) {
                       dispatchMyHabits({
                         action: "remove",
                         index,
-                      })
+                      });
                     }}
                     interactor={interactor}
                   />

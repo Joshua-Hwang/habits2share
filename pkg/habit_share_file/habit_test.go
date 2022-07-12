@@ -115,7 +115,7 @@ func TestHabit(t *testing.T) {
 	})
 
 	t.Run("should fail to change frequency when out of range", func(t *testing.T) {
-		
+		// TODO
 	})
 
 	t.Run("should share habit with another user", func(t *testing.T) {
