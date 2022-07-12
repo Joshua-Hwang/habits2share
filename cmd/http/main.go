@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"internal/auth"
-	"internal/auth_file"
-	"internal/habit_share"
-	"internal/habit_share_file"
+	"github.com/Joshua-Hwang/habits2share/pkg/auth"
+	"github.com/Joshua-Hwang/habits2share/pkg/auth_file"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 	"log"
 	"net/http"
 	"net/url"
@@ -44,6 +44,7 @@ func main() {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
+			ctx = context.WithValue(ctx, dbKey, habitsDatabase)
 			ctx = context.WithValue(ctx, authDbKey, authDatabase)
 			ctx = context.WithValue(ctx, tokenParserKey, tokenParser)
 
@@ -64,18 +65,35 @@ func main() {
 
 	mux := MuxWrapper{ServeMux: http.NewServeMux(), Middleware: buildDependencies}
 
+	mux.RegisterHandlers("/healthcheck", map[string]http.HandlerFunc{
+		// TODO make this more like a deepcheck
+		"HEAD": func(w http.ResponseWriter, r *http.Request) {
+			// Uses the HEAD command for uptime service I use but can be changed easily
+			return
+		},
+	})
+
+	mux.Handle("/web/", sessionParser(BlockAnonymous(
+		BuildGetLogin(webClientId, "/web/"), // TODO this isn't technically nice
+		http.StripPrefix("/web/", http.FileServer(http.Dir("./frontend/build"))).ServeHTTP,
+	)))
+
 	mux.RegisterHandlers("/login", map[string]http.HandlerFunc{
-		"GET":  BuildGetLogin(webClientId),
+		"GET":  BuildGetLogin(webClientId, "/web"),
 		"POST": PostLogin,
 	})
 
 	mux.RegisterHandlers("/my/habits", map[string]http.HandlerFunc{
-		"GET":  sessionParser(BlockAnonymous(GetMyhabits)),
-		"POST": sessionParser(BlockAnonymous(PostMyHabits)),
+		"GET":  sessionParser(BlockAnonymous(nil, GetMyhabits)),
+		"POST": sessionParser(BlockAnonymous(nil, PostMyHabits)),
 	})
+	mux.RegisterHandlers("/my/habits/upload", map[string]http.HandlerFunc{
+		"POST": sessionParser(BlockAnonymous(nil, PostMyHabitsImport)),
+	})
+
 	// TODO if performance is an issue create an /all/habits
 	mux.RegisterHandlers("/shared/habits", map[string]http.HandlerFunc{
-		"GET": sessionParser(BlockAnonymous(GetSharedHabits)),
+		"GET": sessionParser(BlockAnonymous(nil, GetSharedHabits)),
 	})
 
 	// TODO if performance is an issue return activities in same batch as habits
@@ -84,45 +102,41 @@ func main() {
 	// the clients are able to use in a single request.
 	{
 		pathPrefix := "/habit/"
-		mux.HandleFunc(pathPrefix, sessionParser(BlockAnonymous(func(w http.ResponseWriter, r *http.Request) {
-			// TODO either refactor or generate more general solution to this
-			// get habitId
-			remainingUrl := strings.TrimPrefix(r.URL.EscapedPath(), pathPrefix)
-			if remainingUrl == r.URL.EscapedPath() {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "Path is malformed")
-				log.Print("Something funky going on with trimming path", remainingUrl)
-			}
-			habitId, remainingUrl, _ := strings.Cut(remainingUrl, "/")
-			// the slash is removed during cut
-			remainingUrl = fmt.Sprintf("/%s?%s", remainingUrl, r.URL.Query().Encode())
-			r.URL, _ = url.Parse(remainingUrl)
+		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix,
+			sessionParser(BlockAnonymous(nil, func(w http.ResponseWriter, r *http.Request) {
+				// TODO either refactor or generate more general solution to this
+				// get habitId
+				habitId, remainingUrl, _ := strings.Cut(r.URL.EscapedPath(), "/")
+				// the slash is removed during cut
+				remainingUrl = fmt.Sprintf("/%s?%s", remainingUrl, r.URL.Query().Encode())
+				r.URL, _ = url.Parse(remainingUrl)
 
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
-			// TODO check user is allowed to see habit prior retrieving it for performance
-			habit, err := app.GetHabit(habitId)
-			if err != nil {
-				if err == habit_share.HabitNotFoundError {
-					http.NotFound(w, r)
+				app, ok := injectApp(w, r)
+				if !ok {
 					return
 				}
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "Failed to retrieve habit %v", err)
-				log.Printf("Failed to retrieve habit %v", err)
-			}
+				// TODO check user is allowed to see habit prior retrieving it for performance
+				habit, err := app.GetHabit(habitId)
+				if err != nil {
+					if err == habit_share.HabitNotFoundError {
+						http.NotFound(w, r)
+						return
+					}
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprintf(w, "Failed to retrieve habit %v", err)
+					log.Printf("Failed to retrieve habit %v", err)
+				}
 
-			habitHandler := BuildHabitHandler(&habit)
-			habitHandler.ServeHTTP(w, r)
-		})))
+				habitHandler := BuildHabitHandler(&habit)
+				habitHandler.ServeHTTP(w, r)
+			})),
+		))
 	}
 
 	// TODO this doesn't work if other endpoints exist on this prefix
 	mux.RegisterHandlers("/user/", map[string]http.HandlerFunc{
-		"POST":   sessionParser(BlockAnonymous(PostUserHabit)),
-		"DELETE": sessionParser(BlockAnonymous(DeleteUserHabit)),
+		"POST":   sessionParser(BlockAnonymous(nil, PostUserHabit)),
+		"DELETE": sessionParser(BlockAnonymous(nil, DeleteUserHabit)),
 	})
 
 	log.Printf("Listening on port %s", port)

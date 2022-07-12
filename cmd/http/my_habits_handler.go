@@ -1,13 +1,16 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"internal/habit_share"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_import"
 )
 
 func GetMyhabits(w http.ResponseWriter, r *http.Request) {
@@ -83,4 +86,43 @@ func PostMyHabits(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprint(w, habitId)
+}
+
+func PostMyHabitsImport(w http.ResponseWriter, r *http.Request) {
+	// TODO prevent someone from uploading too much
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "text/csv") {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		fmt.Fprintf(w, "Content Type is not text/csv")
+		return
+	}
+
+	db, ok := injectDb(w, r);
+	if !ok {
+		return
+	}
+
+	authService, ok := injectAuth(w, r);
+	if !ok {
+		return
+	}
+
+	csvReader := csv.NewReader(r.Body)
+
+	habitIds, err := habit_share_import.ImportCsv(db, authService, csvReader)
+	if err != nil {
+		if inputError := (*habit_share.InputError)(nil); errors.As(err, &inputError) {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Unable to import csv")
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Something has gone wrong importing habits")
+		log.Printf("Something has gone wrong importing habits: %v", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	for _, habitId := range habitIds {
+		fmt.Fprintf(w, "%s\n", habitId)
+	}
 }

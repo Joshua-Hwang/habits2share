@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"internal/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 	"log"
 	"net/http"
 )
