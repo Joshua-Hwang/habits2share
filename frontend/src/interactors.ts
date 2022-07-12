@@ -7,13 +7,11 @@ export class Interactor {
   constructor(private baseUrl: string = "") {}
 
   public async getMyHabits(): Promise<Array<Habit>> {
-    //await new Promise((resolve) => setTimeout(resolve, 1500));
     const res = await fetch(`${this.baseUrl}/my/habits`);
     return (await res.json()) as Array<Habit>;
   }
 
   public async getSharedHabits(): Promise<Array<Habit>> {
-    //await new Promise((resolve) => setTimeout(resolve, 2000));
     const res = await fetch(`${this.baseUrl}/shared/habits`);
     return (await res.json()) as Array<Habit>;
   }
@@ -26,8 +24,6 @@ export class Interactor {
       limit?: number;
     }
   ): Promise<{ Activities: Array<Activity>; HasMore: boolean }> {
-    //await new Promise((resolve) => setTimeout(resolve, 1234));
-
     const { before, after, limit } = params ?? {};
 
     const queryParams = params
@@ -61,8 +57,6 @@ export class Interactor {
   }
 
   public async getScore(habitId: string): Promise<number> {
-    //await new Promise((resolve) => setTimeout(resolve, 3040));
-
     const res = await fetch(`${this.baseUrl}/habit/${habitId}/score`);
     // TODO handle errors
     return parseInt(await res.text(), 10);
