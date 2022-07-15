@@ -23,11 +23,16 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"github.com/Joshua-Hwang/habits2share/pkg/auth"
 	"io"
 	"os"
+	"sync"
 	"time"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/auth"
 )
+
+// TTL in seconds
+const cacheTtl = 10
 
 type sessionInfo struct {
 	sessionId string
@@ -57,15 +62,18 @@ func sessionInfoToCsv(session sessionInfo) [3]string {
 }
 
 type AuthDatabaseFile struct {
-	SessionsFilepath string
-	AccountsFilepath string
+	SessionsFilepath    string
+	SessionsFileLock    *sync.RWMutex
+	sessionCache        map[string]sessionInfo // map session id to user id
+	sessionCacheCreated time.Time
+	AccountsFilepath    string
 }
 
 var _ auth.AuthDatabase = (*AuthDatabaseFile)(nil)
 
-// TODO This is so inefficient as we're iterating over a list to find the email
+// TODO This doesn't scale, we're iterating over a list to find the email
+// We're also parsing the whole file
 func (a *AuthDatabaseFile) GetUserIdFromEmail(ctx context.Context, email string) (string, error) {
-	// TODO this is not thread safe. Will need mutex.
 	accountsFile, err := os.Open(a.AccountsFilepath)
 	if err != nil {
 		return "", err
@@ -94,6 +102,9 @@ func (a *AuthDatabaseFile) GetUserIdFromEmail(ctx context.Context, email string)
 }
 
 func (a *AuthDatabaseFile) AddSession(ctx context.Context, sessionId string, userId string) error {
+	a.SessionsFileLock.Lock()
+	defer a.SessionsFileLock.Unlock()
+
 	sessionsFile, err := os.OpenFile(a.SessionsFilepath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
@@ -110,7 +121,24 @@ func (a *AuthDatabaseFile) AddSession(ctx context.Context, sessionId string, use
 	return nil
 }
 
+// TODO need to perform some clean up of expired sessions for performance reasons. Can be done external in a cronjob.
+// NOTE the cache means we can't provide an instant session reset
 func (a *AuthDatabaseFile) GetUserIdFromSession(ctx context.Context, sessionId string, since time.Time) (string, error) {
+	a.SessionsFileLock.RLock()
+	defer a.SessionsFileLock.RUnlock()
+
+	// TODO the reason the locks are at the top here instead of near where we open the file is because
+	// this isn't thread safe. If this was done in a constructor this would be fine.
+	if a.sessionCache == nil || time.Since(a.sessionCacheCreated) > time.Duration(cacheTtl*float64(time.Second)) {
+		a.sessionCache = make(map[string]sessionInfo, 0)
+		a.sessionCacheCreated = time.Now()
+	}
+	// check cache first
+	session, ok := a.sessionCache[sessionId]
+	if ok && session.sessionId == sessionId && session.createdAt.After(since) {
+		return session.userId, nil
+	}
+
 	sessionsFile, err := os.Open(a.SessionsFilepath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -134,6 +162,8 @@ func (a *AuthDatabaseFile) GetUserIdFromSession(ctx context.Context, sessionId s
 		if err != nil {
 			return "", err
 		}
+
+		a.sessionCache[session.sessionId] = session
 
 		if session.sessionId == sessionId && session.createdAt.After(since) {
 			return session.userId, nil

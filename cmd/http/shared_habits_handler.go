@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 	"log"
 	"net/http"
+	"strconv"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 )
 
 func GetSharedHabits(w http.ResponseWriter, r *http.Request) {
@@ -14,7 +16,17 @@ func GetSharedHabits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	habits, err := app.GetSharedHabits(10)
+	limitString := r.URL.Query().Get("limit")
+	if limitString == "" {
+		limitString = "64"
+	}
+	limit, err := strconv.Atoi(limitString)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Limit query is in incorrect, must be an integer")
+	}
+
+	habits, err := app.GetSharedHabits(limit)
 	if err != nil && err != habit_share.UserNotFoundError {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "GetMyHabits failed")

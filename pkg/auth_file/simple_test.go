@@ -2,15 +2,18 @@ package auth_file
 
 import (
 	"context"
-	"github.com/Joshua-Hwang/habits2share/pkg/auth"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/auth"
 )
 
 var testCsv = "test1.csv"
 var testJson = "test1.json"
+var lock sync.RWMutex
 
 func TestAddSession(t *testing.T) {
 	if _, err := os.Stat(testCsv); err == nil {
@@ -21,7 +24,7 @@ func TestAddSession(t *testing.T) {
 	}
 
 	t.Run("should append to file", func(t *testing.T) {
-		authDatabaseFile := AuthDatabaseFile{SessionsFilepath: testCsv}
+		authDatabaseFile := AuthDatabaseFile{SessionsFilepath: testCsv, SessionsFileLock: &lock}
 
 		err := authDatabaseFile.AddSession(context.Background(), "abcde", "test@user.com")
 		if err != nil {
@@ -49,7 +52,7 @@ func TestGetUserIdFromEmail(t *testing.T) {
 	}
 
 	t.Run("should return correct answer", func(t *testing.T) {
-		authDatabaseFile := AuthDatabaseFile{AccountsFilepath: testJson}
+		authDatabaseFile := AuthDatabaseFile{AccountsFilepath: testJson, SessionsFileLock: &lock}
 
 		userId, err := authDatabaseFile.GetUserIdFromEmail(context.Background(), "correct@answer.com")
 
@@ -73,7 +76,7 @@ func TestGetSession(t *testing.T) {
 	}
 
 	t.Run("should successfully get session", func(t *testing.T) {
-		authDatabaseFile := AuthDatabaseFile{SessionsFilepath: testCsv}
+		authDatabaseFile := AuthDatabaseFile{SessionsFilepath: testCsv, SessionsFileLock: &lock}
 
 		userId, err := authDatabaseFile.GetUserIdFromSession(context.Background(),
 			"abcde",
@@ -91,7 +94,7 @@ func TestGetSession(t *testing.T) {
 
 func TestFilesDoNotExist(t *testing.T) {
 	t.Run("access session", func(t *testing.T) {
-		authDatabaseFile := AuthDatabaseFile{SessionsFilepath: "does not exist"}
+		authDatabaseFile := AuthDatabaseFile{SessionsFilepath: "does not exist", SessionsFileLock: &lock}
 
 		_, err := authDatabaseFile.GetUserIdFromSession(context.Background(),
 			"abcde",

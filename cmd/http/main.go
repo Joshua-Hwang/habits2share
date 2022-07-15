@@ -3,15 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/Joshua-Hwang/habits2share/pkg/auth"
-	"github.com/Joshua-Hwang/habits2share/pkg/auth_file"
-	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
-	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"sync"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/auth"
+	"github.com/Joshua-Hwang/habits2share/pkg/auth_file"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 )
 
 func main() {
@@ -27,6 +29,7 @@ func main() {
 
 	authDatabase := &auth_file.AuthDatabaseFile{
 		SessionsFilepath: "sessions.csv",
+		SessionsFileLock: &sync.RWMutex{},
 		AccountsFilepath: "accounts.json",
 	}
 	tokenParser := &auth.TokenParserGoogle{
@@ -73,8 +76,9 @@ func main() {
 		},
 	})
 
+	// TODO because session parsing happens here. All static files are checked for login credentials causing unnecessary reads
 	mux.Handle("/web/", sessionParser(BlockAnonymous(
-		BuildGetLogin(webClientId, "/web/"), // TODO this isn't technically nice
+		BuildGetLogin(webClientId, "/web/"),
 		http.StripPrefix("/web/", http.FileServer(http.Dir("./frontend/build"))).ServeHTTP,
 	)))
 
@@ -91,12 +95,12 @@ func main() {
 		"POST": sessionParser(BlockAnonymous(nil, PostMyHabitsImport)),
 	})
 
-	// TODO if performance is an issue create an /all/habits
+	// NOTE if performance is an issue consider creating an /all/habits
 	mux.RegisterHandlers("/shared/habits", map[string]http.HandlerFunc{
 		"GET": sessionParser(BlockAnonymous(nil, GetSharedHabits)),
 	})
 
-	// TODO if performance is an issue return activities in same batch as habits
+	// NOTE if performance is an issue return activities in same batch as habits
 	// How do you keep all this modular without burdening the client?
 	// GraphQL provides one such way. An exposed and powerful querying language
 	// the clients are able to use in a single request.
@@ -104,7 +108,6 @@ func main() {
 		pathPrefix := "/habit/"
 		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix,
 			sessionParser(BlockAnonymous(nil, func(w http.ResponseWriter, r *http.Request) {
-				// TODO either refactor or generate more general solution to this
 				// get habitId
 				habitId, remainingUrl, _ := strings.Cut(r.URL.EscapedPath(), "/")
 				// the slash is removed during cut
@@ -115,7 +118,7 @@ func main() {
 				if !ok {
 					return
 				}
-				// TODO check user is allowed to see habit prior retrieving it for performance
+
 				habit, err := app.GetHabit(habitId)
 				if err != nil {
 					if err == habit_share.HabitNotFoundError {
@@ -133,7 +136,7 @@ func main() {
 		))
 	}
 
-	// TODO this doesn't work if other endpoints exist on this prefix
+	// NOTE this doesn't work if other endpoints exist on this prefix
 	mux.RegisterHandlers("/user/", map[string]http.HandlerFunc{
 		"POST":   sessionParser(BlockAnonymous(nil, PostUserHabit)),
 		"DELETE": sessionParser(BlockAnonymous(nil, DeleteUserHabit)),

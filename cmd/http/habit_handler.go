@@ -124,16 +124,24 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			w.WriteHeader(http.StatusCreated)
 		},
 		"DELETE": func(w http.ResponseWriter, r *http.Request) {
-			// TODO DELETE archives the habit. Expose an API for complete deletion.
 			app, ok := injectApp(w, r)
 			if !ok {
 				return
 			}
 
-			err := app.ArchiveHabit(habit.Id)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "Failed to archive habit")
+			permanent := r.URL.Query().Get("permanent")
+			if permanent == "true" {
+				err := app.DeleteHabit(habit.Id)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprintf(w, "Failed to delete habit")
+				}
+			} else {
+				err := app.ArchiveHabit(habit.Id)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprintf(w, "Failed to archive habit")
+				}
 			}
 
 			w.WriteHeader(http.StatusNoContent)
@@ -170,42 +178,9 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			w.WriteHeader(http.StatusCreated)
 		},
 	})
-	// TODO frequency endpoint is not a smart way to edit
 	mux.RegisterHandlers("/frequency", map[string]http.HandlerFunc{
 		"GET": func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%d", habit.Frequency)
-		},
-		"POST": func(w http.ResponseWriter, r *http.Request) {
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
-
-			if !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
-				w.WriteHeader(http.StatusUnsupportedMediaType)
-				fmt.Fprintf(w, "Content Type is not text/html")
-				return
-			}
-			b, err := io.ReadAll(r.Body)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "Failed to read body of request")
-				return
-			}
-			// As a security measure take our Id instead of the user input
-			frequency, err := strconv.Atoi(string(b))
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, "Failed to parse frequency")
-				return
-			}
-			err = app.ChangeFrequency(habit.Id, frequency)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "Failed to write name to habit")
-				return
-			}
-			w.WriteHeader(http.StatusCreated)
 		},
 	})
 	mux.RegisterHandlers("/score", map[string]http.HandlerFunc{
@@ -260,6 +235,10 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				limitString = "7"
 			}
 			limit, err := strconv.Atoi(limitString)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "Limit query is in incorrect, must be an integer")
+			}
 
 			if before.Before(after) {
 				w.WriteHeader(http.StatusBadRequest)

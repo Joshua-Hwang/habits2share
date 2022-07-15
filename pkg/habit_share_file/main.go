@@ -7,12 +7,16 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 
 	"github.com/google/uuid"
 )
+
+// TTL in seconds
+const cacheTtl = 10
 
 const DateFormat = "2006-01-02"
 
@@ -61,55 +65,34 @@ type User struct {
 }
 
 type HabitShareFile struct {
-	Users  map[string]User
-	Habits map[string]HabitJson
-	file   *os.File
+	Users    map[string]User
+	Habits   map[string]HabitJson
+	filename string
+	fileLock *sync.Mutex // This can't be a rw mutex as you're always "writing" the parsed file to the struct
+	lastRead time.Time
 }
 
 var _ habit_share.HabitsDatabase = (*HabitShareFile)(nil)
 
 func HabitShareFromFile(filename string) (*HabitShareFile, error) {
 	var habitShareFile HabitShareFile
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0600)
+	habitShareFile.filename = filename
+	habitShareFile.fileLock = &sync.Mutex{}
 
-	content, err := io.ReadAll(file);
+	err := habitShareFile.read()
+
 	if err != nil {
 		return nil, err
 	}
-	if len(content) == 0 {
-		// file does not exist yet
-		habitShareFile.Habits = make(map[string]HabitJson, 0)
-		habitShareFile.Users = make(map[string]User, 0)
-
-		if err != nil {
-			return nil, err
-		}
-		habitShareFile.file = file
-		return &habitShareFile, nil
-	}
-
-	err = json.Unmarshal(content, &habitShareFile)
-	if err != nil {
-		return nil, err
-	}
-
-	// remember where we got this from
-	habitShareFile.file = file
 
 	return &habitShareFile, nil
 }
 
 // it's the responsibility of the server to WriteToFile
+// it might be better to use a filename instead of os.File
+// oh well
 func (a *HabitShareFile) WriteToFile(file *os.File) error {
 	jsonString, err := json.MarshalIndent(a, "", "  ")
-	// TODO this is fine but still risk of collisions as not atomic.
-	// Add mutex
-	// Race conditions be nasty. Need some way to handle changes serially.
-	err = file.Truncate(0)
-	if err != nil {
-		return err
-	}
-	_, err = file.Seek(0, 0)
 	if err != nil {
 		return err
 	}
@@ -122,8 +105,16 @@ func (a *HabitShareFile) WriteToFile(file *os.File) error {
 }
 
 func (a *HabitShareFile) write() error {
-	if a.file != nil {
-		err := a.WriteToFile(a.file)
+	if a.filename != "" {
+		a.fileLock.Lock()
+		defer a.fileLock.Unlock()
+
+		file, err := os.OpenFile(a.filename, os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+
+		err = a.WriteToFile(file)
 		if err != nil {
 			return err
 		}
@@ -132,8 +123,44 @@ func (a *HabitShareFile) write() error {
 	return nil
 }
 
+func (a *HabitShareFile) read() error {
+	if a.filename != "" && time.Since(a.lastRead) > time.Duration(cacheTtl*float64(time.Second)) {
+		a.fileLock.Lock()
+		defer a.fileLock.Unlock()
+
+		file, err := os.Open(a.filename)
+
+		content, err := io.ReadAll(file)
+		if err != nil {
+			return err
+		}
+		a.lastRead = time.Now()
+		if len(content) == 0 {
+			// file does not exist or got removed
+			a.Habits = make(map[string]HabitJson, 0)
+			a.Users = make(map[string]User, 0)
+
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+		err = json.Unmarshal(content, a)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	return nil
+}
+
 // ShareHabit implements habit_share.HabitsDatabase
 func (a *HabitShareFile) ShareHabit(habitId string, friend string) error {
+	if err := a.read(); err != nil {
+		return err
+	}
 	// don't forget to write back to the file if it exists
 	user, ok := a.Users[friend]
 	if !ok {
@@ -160,6 +187,9 @@ func (a *HabitShareFile) ShareHabit(habitId string, friend string) error {
 
 // GetSharedWith implements habit_share.HabitsDatabase
 func (a *HabitShareFile) GetSharedWith(habitId string) (map[string]struct{}, error) {
+	if err := a.read(); err != nil {
+		return nil, err
+	}
 	habit, ok := a.Habits[habitId]
 	if !ok {
 		return nil, habit_share.HabitNotFoundError
@@ -170,6 +200,9 @@ func (a *HabitShareFile) GetSharedWith(habitId string) (map[string]struct{}, err
 
 // UnSharehabit implements habit_share.HabitsDatabase
 func (a *HabitShareFile) UnShareHabit(habitId string, friend string) error {
+	if err := a.read(); err != nil {
+		return err
+	}
 	// don't forget to write back to the file if it exists
 	user, ok := a.Users[friend]
 	if !ok {
@@ -196,6 +229,10 @@ func (a *HabitShareFile) UnShareHabit(habitId string, friend string) error {
 
 // ArchiveHabit implements habit_share.HabitsDatabase
 func (a *HabitShareFile) ArchiveHabit(id string) error {
+	if err := a.read(); err != nil {
+		return err
+	}
+
 	habit, ok := a.Habits[id]
 	if !ok {
 		return habit_share.HabitNotFoundError
@@ -213,6 +250,10 @@ func (a *HabitShareFile) ArchiveHabit(id string) error {
 
 // ChangeFrequency implements habit_share.HabitsDatabase
 func (a *HabitShareFile) ChangeFrequency(id string, newFrequency int) error {
+	if err := a.read(); err != nil {
+		return err
+	}
+
 	if habit, ok := a.Habits[id]; !ok {
 		return habit_share.HabitNotFoundError
 	} else {
@@ -230,6 +271,10 @@ func (a *HabitShareFile) ChangeFrequency(id string, newFrequency int) error {
 
 // CreateHabit implements habit_share.HabitsDatabase
 func (a *HabitShareFile) CreateHabit(name string, owner string, frequency int) (string, error) {
+	if err := a.read(); err != nil {
+		return "", err
+	}
+
 	user, ok := a.Users[owner]
 	if !ok {
 		// if user doesn't exist create user
@@ -263,6 +308,9 @@ func (a *HabitShareFile) CreateHabit(name string, owner string, frequency int) (
 // CreateActivity implements habit_share.HabitsDatabase
 // logged should be the first moments of the day under UTC. If not we transform it anyway.
 func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status string) (string, error) {
+	if err := a.read(); err != nil {
+		return "", err
+	}
 	// activity id will be defined as habit_date
 	habit, ok := a.Habits[habitId]
 	if !ok {
@@ -308,6 +356,10 @@ func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status
 }
 
 func (a *HabitShareFile) GetHabitFromActivity(activityId string) (habit_share.Habit, error) {
+	if err := a.read(); err != nil {
+		return habit_share.Habit{}, err
+	}
+
 	habitId, _, err := parseActivityId(activityId)
 	if err != nil {
 		return habit_share.Habit{}, err
@@ -401,6 +453,10 @@ func (a *HabitShareFile) GetActivities(
 	before time.Time,
 	limit int,
 ) (activities []habit_share.Activity, hasMore bool, err error) {
+	if err := a.read(); err != nil {
+		return nil, false, err
+	}
+
 	if before.Before(after) {
 		return nil, false, &habit_share.InputError{
 			StringToParse: fmt.Sprintf("before=%s after=%s", before, after),
@@ -436,6 +492,9 @@ func (a *HabitShareFile) GetActivities(
 
 // GetHabit implements habit_share.HabitsDatabase
 func (a *HabitShareFile) GetHabit(id string) (habit_share.Habit, error) {
+	if err := a.read(); err != nil {
+		return habit_share.Habit{}, err
+	}
 	habit, ok := a.Habits[id]
 	if !ok {
 		return habit_share.Habit{}, habit_share.HabitNotFoundError
@@ -445,6 +504,9 @@ func (a *HabitShareFile) GetHabit(id string) (habit_share.Habit, error) {
 
 // GetMyHabits implements habit_share.HabitsDatabase
 func (a *HabitShareFile) GetMyHabits(owner string, limit int, archived bool) ([]habit_share.Habit, error) {
+	if err := a.read(); err != nil {
+		return nil, err
+	}
 	// assumes the user is valid thus it must not be in the database yet
 	user, ok := a.Users[owner]
 	if !ok {
@@ -475,6 +537,9 @@ func (a *HabitShareFile) GetMyHabits(owner string, limit int, archived bool) ([]
 
 // GetSharedHabits implements habit_share.HabitsDatabase
 func (a *HabitShareFile) GetSharedHabits(owner string, limit int) ([]habit_share.Habit, error) {
+	if err := a.read(); err != nil {
+		return nil, err
+	}
 	// assumes the user is valid thus it must not be in the database yet
 	user, ok := a.Users[owner]
 	if !ok {
@@ -505,6 +570,9 @@ func (a *HabitShareFile) GetSharedHabits(owner string, limit int) ([]habit_share
 // GetStreak implements habit_share.HabitsDatabase
 // TODO for performance this should be calculated on activity entry and cached
 func (a *HabitShareFile) GetScore(habitId string) (int, error) {
+	if err := a.read(); err != nil {
+		return 0, err
+	}
 	habit, ok := a.Habits[habitId]
 	if !ok {
 		return 0, habit_share.HabitNotFoundError

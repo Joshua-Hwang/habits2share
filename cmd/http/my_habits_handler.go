@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
@@ -19,8 +20,17 @@ func GetMyhabits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO remove hardcoded value
-	habits, err := app.GetMyHabits(10, false)
+	limitString := r.URL.Query().Get("limit")
+	if limitString == "" {
+		limitString = "64"
+	}
+	limit, err := strconv.Atoi(limitString)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Limit query is in incorrect, must be an integer")
+	}
+
+	habits, err := app.GetMyHabits(limit, false)
 	if err != nil && err != habit_share.UserNotFoundError {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "GetMyHabits failed")

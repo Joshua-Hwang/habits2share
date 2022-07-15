@@ -4,5 +4,6 @@ mkdir -p build
 go build -o ./build/server ./cmd/http
 
 cd frontend
-npm run build
+yarn install
+yarn build
 cd ..
