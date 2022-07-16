@@ -5,3 +5,4 @@ sessions.csv
 
 build/
 scripts/deploy.sh
+fly.toml
