@@ -79,11 +79,12 @@ function ActivityViewer({
         const dateString = d.format(DATE_FORMAT);
         const activity = activities[dateString];
 
-        const status: Status = !activity
-          ? "SUCCESS"
-          : activity.Status === "SUCCESS"
-          ? "MINIMUM"
-          : "NOT_DONE";
+        const status: Status =
+          !activity || activity.Status === "NOT_DONE"
+            ? "SUCCESS"
+            : activity.Status === "SUCCESS"
+            ? "MINIMUM"
+            : "NOT_DONE";
 
         dispatch({
           action: "insert",

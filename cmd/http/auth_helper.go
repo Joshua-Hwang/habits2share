@@ -15,7 +15,7 @@ import (
 )
 
 const userIdKey = key("USER_ID")
-const sessionCookieName = "__Host-SESSIONID"
+const sessionCookieName = "__Secure-SESSIONID"
 const sessionTtl = time.Duration(24 * 60 * 60 * 1000 * 1000 * 1000)
 const cookieTtl = 365 * 24 * 60 * 60
 
@@ -30,6 +30,7 @@ func BuildGetLogin(webClientId string, redirectUrl string) http.HandlerFunc {
 			data-auto_prompt="false"
 			data-login_uri="/login?redirect_url=%s"
 			data-context="signin"
+			data-ux_mode="redirect"
 		></div>
 		<div class="g_id_signin"
 			data-type="standard"
@@ -103,7 +104,7 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 		Name:     sessionCookieName,
 		Value:    sessionId,
 		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,
 		MaxAge:   cookieTtl,
 	})

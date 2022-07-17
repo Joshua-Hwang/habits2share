@@ -100,6 +100,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				} else {
 					w.WriteHeader(http.StatusInternalServerError)
 					fmt.Fprintf(w, "Failed to create activity")
+					log.Printf("Something has gone wrong creating activities: %v", err)
 				}
 				return
 			}
@@ -117,6 +118,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				} else {
 					w.WriteHeader(http.StatusInternalServerError)
 					fmt.Fprintf(w, "Failed to create activity")
+					log.Printf("Something has gone wrong getting activities: %v", err)
 				}
 				return
 			}
@@ -135,12 +137,14 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					fmt.Fprintf(w, "Failed to delete habit")
+					log.Printf("Something has gone wrong deleting activities: %v", err)
 				}
 			} else {
 				err := app.ArchiveHabit(habit.Id)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					fmt.Fprintf(w, "Failed to archive habit")
+					log.Printf("Something has gone wrong archiving habit: %v", err)
 				}
 			}
 
@@ -166,6 +170,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprintf(w, "Failed to read body of request")
+				log.Printf("Something has gone wrong changing name, reading: %v", err)
 				return
 			}
 			// As a security measure take our Id instead of the user input
@@ -173,6 +178,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprintf(w, "Failed to write name to habit")
+				log.Printf("Something has gone wrong changing name, writing: %v", err)
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
@@ -323,6 +329,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				} else {
 					w.WriteHeader(http.StatusInternalServerError)
 					fmt.Fprintf(w, "Failed to create activity")
+					log.Printf("Something has gone wrong creating an activities: %v", err)
 				}
 				return
 			}

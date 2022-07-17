@@ -19,10 +19,14 @@ insert some uuid,insert userId here,some date of the form 2006-01-02T15:04:05Z07
 
 When making `curl` requests add the following cookie
 ```bash
-curl --cookie __Host-SESSIONID='uuid mentioned before' localhost:8080...
+curl --cookie __Secure-SESSIONID='uuid mentioned before' localhost:8080...
 ```
 
 1. Run `./scripts/start.sh` to run the server. We currently don't have any dependencies.
+
+## Building container
+The `Dockerfile` doesn't automatically build the `frontend/` so the
+`./scripts/build-container.sh` does that prior building the container.
 
 ## TODO
 * [ ] Remove need for Google Cloud OAuth

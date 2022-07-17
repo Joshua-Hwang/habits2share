@@ -3,7 +3,6 @@ package habit_share_file
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"sort"
 	"strings"
@@ -109,7 +108,7 @@ func (a *HabitShareFile) write() error {
 		a.fileLock.Lock()
 		defer a.fileLock.Unlock()
 
-		file, err := os.OpenFile(a.filename, os.O_WRONLY|os.O_CREATE, 0600)
+		file, err := os.OpenFile(a.filename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			return err
 		}
@@ -128,21 +127,15 @@ func (a *HabitShareFile) read() error {
 		a.fileLock.Lock()
 		defer a.fileLock.Unlock()
 
-		file, err := os.Open(a.filename)
-
-		content, err := io.ReadAll(file)
-		if err != nil {
-			return err
-		}
+		content, err := os.ReadFile(a.filename)
 		a.lastRead = time.Now()
-		if len(content) == 0 {
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
 			// file does not exist or got removed
 			a.Habits = make(map[string]HabitJson, 0)
 			a.Users = make(map[string]User, 0)
-
-			if err != nil {
-				return err
-			}
 			return nil
 		}
 		err = json.Unmarshal(content, a)

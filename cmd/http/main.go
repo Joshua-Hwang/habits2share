@@ -17,27 +17,39 @@ import (
 )
 
 func main() {
+	webClientId := os.Getenv("GOOGLE_WEB_CLIENT_ID")
+	mobileClientId := os.Getenv("GOOGLE_MOBILE_CLIENT_ID")
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-
-	webClientId := os.Getenv("GOOGLE_WEB_CLIENT_ID")
-	mobileClientId := os.Getenv("GOOGLE_MOBILE_CLIENT_ID")
+	sessionFilePath := os.Getenv("SESSIONS_FILE")
+	if sessionFilePath == "" {
+		sessionFilePath = "sessions.csv"
+	}
+	accountsFilePath := os.Getenv("ACCOUNTS_FILE")
+	if accountsFilePath == "" {
+		accountsFilePath = "accounts.json"
+	}
+	habitsFilePath := os.Getenv("HABITS_FILE")
+	if habitsFilePath == "" {
+		habitsFilePath = "habits.json"
+	}
 
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 
 	authDatabase := &auth_file.AuthDatabaseFile{
-		SessionsFilepath: "sessions.csv",
+		SessionsFilepath: sessionFilePath,
 		SessionsFileLock: &sync.RWMutex{},
-		AccountsFilepath: "accounts.json",
+		AccountsFilepath: accountsFilePath,
 	}
 	tokenParser := &auth.TokenParserGoogle{
 		WebClientId:    webClientId,
 		MobileClientId: mobileClientId,
 	}
 
-	habitsDatabase, err := habit_share_file.HabitShareFromFile("habits.json")
+	habitsDatabase, err := habit_share_file.HabitShareFromFile(habitsFilePath)
 	if err != nil {
 		panic(err)
 	}
@@ -74,6 +86,15 @@ func main() {
 			// Uses the HEAD command for uptime service I use but can be changed easily
 			return
 		},
+	})
+
+	// These assets need to skip the credentials check because Firefox doesn't
+	// send cookies when requesting manifest.json
+	mux.HandleFunc("/web/manifest.json", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./frontend/build/manifest.json")
+	})
+	mux.HandleFunc("/web/asset-manifest.json", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./frontend/build/asset-manifest.json")
 	})
 
 	// TODO because session parsing happens here. All static files are checked for login credentials causing unnecessary reads
