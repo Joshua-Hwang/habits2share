@@ -129,7 +129,7 @@ func (a *HabitShareFile) read() error {
 
 		content, err := os.ReadFile(a.filename)
 		a.lastRead = time.Now()
-		if err != nil {
+		if err != nil || len(content) == 0 {
 			if !os.IsNotExist(err) {
 				return err
 			}
@@ -251,6 +251,27 @@ func (a *HabitShareFile) ChangeFrequency(id string, newFrequency int) error {
 		return habit_share.HabitNotFoundError
 	} else {
 		habit.Frequency = newFrequency
+		a.Habits[id] = habit
+	}
+
+	err := a.write()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ChangeDescription implements habit_share.HabitsDatabase
+func (a *HabitShareFile) ChangeDescription(id string, newDescription string) error {
+	if err := a.read(); err != nil {
+		return err
+	}
+
+	if habit, ok := a.Habits[id]; !ok {
+		return habit_share.HabitNotFoundError
+	} else {
+		habit.Description = newDescription
 		a.Habits[id] = habit
 	}
 

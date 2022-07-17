@@ -7,12 +7,13 @@ import (
 )
 
 type Habit struct {
-	Id         string
-	Owner      string
-	SharedWith map[string]struct{}
-	Name       string
-	Frequency  int
-	Archived   bool
+	Id          string
+	Owner       string
+	SharedWith  map[string]struct{}
+	Name        string
+	Description string
+	Frequency   int
+	Archived    bool
 }
 
 type Activity struct {
@@ -62,6 +63,7 @@ type HabitsDatabase interface {
 	// frequency should technically be checked (1-7) in this part prior to sending
 	// request to underlying implementation
 	ChangeFrequency(id string, newFrequency int) error
+	ChangeDescription(id string, newDescription string) error
 	ArchiveHabit(id string) error
 	UnarchiveHabit(id string) error
 	DeleteHabit(id string) error

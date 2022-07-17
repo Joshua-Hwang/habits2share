@@ -21,6 +21,7 @@
       "Owner": "testUser1",
       "SharedWith": null,
       "Name": "first habit",
+      "Description": "",
       "Frequency": 3,
       "Archived": false,
       "Activities": []
@@ -30,6 +31,7 @@
       "Owner": "testUser2",
       "SharedWith": null,
       "Name": "my first habit",
+      "Description": "",
       "Frequency": 7,
       "Archived": true,
       "Activities": [

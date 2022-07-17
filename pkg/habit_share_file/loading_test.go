@@ -44,6 +44,22 @@ func TestIo(t *testing.T) {
 		}
 	})
 
+	t.Run("should handle missing description from a file", func(t *testing.T) {
+		habitShare, err := HabitShareFromFile(inputJson)
+		if err != nil {
+			t.Error("Failed to parse or read the input file got: ", err)
+		}
+
+		habit, ok := habitShare.Habits["testUser2_habitId1"]
+		if !ok {
+			t.Errorf("Failed to correctly parse the input json %+v", habitShare)
+		}
+		if habit.Description != "" {
+			t.Errorf("Should be empty string got %+v", habit.Description)
+		}
+		habit.Description = "new description"
+	})
+
 	t.Run("should load nothing but continue if file doesn't exist", func(t *testing.T) {
 		_, err := HabitShareFromFile("doesn't exist")
 		if err != nil {

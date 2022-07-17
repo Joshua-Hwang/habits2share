@@ -206,6 +206,15 @@ func (a *App) ChangeName(id string, newName string) error {
 	return a.Db.ChangeName(id, newName)
 }
 
+// ChangeDescription
+func (a *App) ChangeDescription(id string, newDescription string) error {
+	if err := a.habitOwnerCheck(id); err != nil {
+		return err
+	}
+
+	return a.Db.ChangeDescription(id, newDescription)
+}
+
 // ShareHabit implements HabitsDatabase
 func (a *App) ShareHabit(habitId string, friend string) error {
 	if err := a.habitOwnerCheck(habitId); err != nil {
