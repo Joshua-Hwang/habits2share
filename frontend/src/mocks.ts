@@ -14,6 +14,7 @@ export class MockInteractor /*implements PublicPart<Interactor>*/ {
         SharedWith: { wilson: {} },
         Name: "adfdsafafds",
         Frequency: 3,
+        Description: "",
         Archived: false,
       },
       {
@@ -22,6 +23,7 @@ export class MockInteractor /*implements PublicPart<Interactor>*/ {
         SharedWith: { wilson: {} },
         Name: "what",
         Frequency: 3,
+        Description: "",
         Archived: false,
       },
       {
@@ -30,6 +32,7 @@ export class MockInteractor /*implements PublicPart<Interactor>*/ {
         SharedWith: { wilson: {} },
         Name: "new",
         Frequency: 3,
+        Description: "",
         Archived: false,
       },
       {
@@ -38,6 +41,7 @@ export class MockInteractor /*implements PublicPart<Interactor>*/ {
         SharedWith: { wilson: {} },
         Name: "noted",
         Frequency: 3,
+        Description: "",
         Archived: false,
       },
       {
@@ -46,6 +50,7 @@ export class MockInteractor /*implements PublicPart<Interactor>*/ {
         SharedWith: { wilson: {} },
         Name: "let's go",
         Frequency: 3,
+        Description: "",
         Archived: false,
       },
     ];
@@ -60,6 +65,7 @@ export class MockInteractor /*implements PublicPart<Interactor>*/ {
         SharedWith: { wilson: {} },
         Name: "big",
         Frequency: 3,
+        Description: "",
         Archived: false,
       },
       {
@@ -68,6 +74,7 @@ export class MockInteractor /*implements PublicPart<Interactor>*/ {
         SharedWith: { wilson: {} },
         Name: "names",
         Frequency: 3,
+        Description: "",
         Archived: false,
       },
       {
@@ -76,6 +83,7 @@ export class MockInteractor /*implements PublicPart<Interactor>*/ {
         SharedWith: { wilson: {} },
         Name: "matter",
         Frequency: 3,
+        Description: "",
         Archived: false,
       },
     ];

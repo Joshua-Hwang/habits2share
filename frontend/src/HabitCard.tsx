@@ -212,7 +212,7 @@ export function HabitCard({
         onShare={async (userId) => {
           await setHabit?.(
             { ...habit, SharedWith: { ...habit.SharedWith, [userId]: {} } },
-            { dontUpdateServer: true }
+            { dontUpdateServer: true } // TODO improve name from dontUpdateServer
           );
           await interactor.shareHabit(habit.Id, userId);
         }}
@@ -291,6 +291,10 @@ export function HabitCard({
             </Text>
           </>
         )}
+      </Group>
+      <Group>
+        <Divider sx={{ height: "auto" }} orientation="vertical" />
+        <Text style={{ whiteSpace: "pre-line" }} size="xs">{habit.Description}</Text>
       </Group>
       <Space h="md" />
       {loadingDates ? (

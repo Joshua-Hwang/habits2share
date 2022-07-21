@@ -120,6 +120,7 @@ function App({ interactor }: { interactor: Interactor }) {
               Frequency: frequency,
               Owner: "self",
               SharedWith: {},
+              Description: "",
               Archived: false,
             },
           });

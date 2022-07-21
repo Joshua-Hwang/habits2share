@@ -9,6 +9,7 @@ export type Habit = {
   SharedWith: Record<string, {}>; // Due to nature of golang server
   Name: string;
   Frequency: number;
+  Description: string;
   Archived: boolean;
 };
 

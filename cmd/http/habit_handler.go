@@ -74,8 +74,9 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			}
 
 			updatePayload := struct {
-				Name      string
-				Frequency int
+				Name        string
+				Frequency   int
+				Description string
 			}{}
 			decoder := json.NewDecoder(r.Body)
 			decoder.DisallowUnknownFields()
@@ -103,8 +104,8 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 					fmt.Fprintf(w, "You do not have permissions for this habit")
 				} else {
 					w.WriteHeader(http.StatusInternalServerError)
-					fmt.Fprintf(w, "Failed to create activity")
-					log.Printf("Something has gone wrong creating activities: %v", err)
+					fmt.Fprintf(w, "Failed rename habit")
+					log.Printf("Something has gone wrong renaming habit: %v", err)
 				}
 				return
 			}
@@ -121,8 +122,26 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 					fmt.Fprintf(w, "You do not have permissions for this habit")
 				} else {
 					w.WriteHeader(http.StatusInternalServerError)
-					fmt.Fprintf(w, "Failed to create activity")
-					log.Printf("Something has gone wrong getting activities: %v", err)
+					fmt.Fprintf(w, "Failed to change frequency")
+					log.Printf("Something has gone wrong changing frequency: %v", err)
+				}
+				return
+			}
+
+			if updatePayload.Description != "" {
+				err = app.ChangeDescription(habit.Id, updatePayload.Description)
+			}
+			if err != nil {
+				if inputError := (*habit_share.InputError)(nil); errors.As(err, &inputError) {
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, "Bad Request, Description was invalid, description not modified")
+				} else if errors.Is(err, habit_share.PermissionDeniedError) {
+					w.WriteHeader(http.StatusForbidden)
+					fmt.Fprintf(w, "You do not have permissions for this habit")
+				} else {
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprintf(w, "Failed to change description")
+					log.Printf("Something has gone wrong changing description: %v", err)
 				}
 				return
 			}
