@@ -230,8 +230,13 @@ export function HabitCard({
       <HabitEditorModal
         habit={habit}
         interactor={interactor}
-        onSubmit={async ({ name, frequency }) => {
-          await setHabit?.({ ...habit, Name: name, Frequency: frequency });
+        onSubmit={async ({ name, frequency, description }) => {
+          await setHabit?.({
+            ...habit,
+            Name: name,
+            Frequency: frequency,
+            Description: description,
+          });
           setEditModalOpened(false);
         }}
         opened={editModalOpened}
@@ -294,7 +299,9 @@ export function HabitCard({
       </Group>
       <Group>
         <Divider sx={{ height: "auto" }} orientation="vertical" />
-        <Text style={{ whiteSpace: "pre-line" }} size="xs">{habit.Description}</Text>
+        <Text style={{ whiteSpace: "pre-line" }} size="xs">
+          {habit.Description}
+        </Text>
       </Group>
       <Space h="md" />
       {loadingDates ? (

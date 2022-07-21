@@ -180,7 +180,8 @@ function App({ interactor }: { interactor: Interactor }) {
                         await interactor.updateHabit(
                           habit.Id,
                           habit.Name,
-                          habit.Frequency
+                          habit.Frequency,
+                          habit.Description,
                         );
                       }
                       dispatchMyHabits({

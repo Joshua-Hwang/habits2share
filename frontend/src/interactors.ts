@@ -94,14 +94,19 @@ export class Interactor {
   public async updateHabit(
     habitId: string,
     name: string,
-    frequency: number
+    frequency: number,
+    description: string
   ): Promise<void> {
     await fetch(`${this.baseUrl}/habit/${habitId}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ Name: name, Frequency: frequency }),
+      body: JSON.stringify({
+        Name: name,
+        Frequency: frequency,
+        Description: description,
+      }),
     });
     // TODO throw if not okay
   }
@@ -113,15 +118,21 @@ export class Interactor {
   }
 
   public async shareHabit(habitId: string, userId: string): Promise<void> {
-    await fetch(`${this.baseUrl}/user/${encodeURIComponent(userId)}/habit/${habitId}`, {
-      method: "POST",
-    });
+    await fetch(
+      `${this.baseUrl}/user/${encodeURIComponent(userId)}/habit/${habitId}`,
+      {
+        method: "POST",
+      }
+    );
   }
 
   public async unshareHabit(habitId: string, userId: string): Promise<void> {
-    await fetch(`${this.baseUrl}/user/${encodeURIComponent(userId)}/habit/${habitId}`, {
-      method: "DELETE",
-    });
+    await fetch(
+      `${this.baseUrl}/user/${encodeURIComponent(userId)}/habit/${habitId}`,
+      {
+        method: "DELETE",
+      }
+    );
   }
 
   public async importHabits(csv: string): Promise<string[]> {

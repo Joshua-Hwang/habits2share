@@ -11,6 +11,7 @@ import {
   Box,
   Paper,
   useMantineTheme,
+  Textarea,
 } from "@mantine/core";
 import { Calendar } from "@mantine/dates";
 import { useForm } from "@mantine/form";
@@ -122,12 +123,14 @@ function ActivityViewer({
 function HabitEditorForm({
   name,
   frequency,
+  description,
   onSubmit,
   onArchive,
 }: {
   name: string;
   frequency: number;
-  onSubmit: (values: { name: string; frequency: number }) => Promise<void>;
+  description: string;
+  onSubmit: (values: { name: string; frequency: number, description: string }) => Promise<void>;
   onArchive: () => Promise<void>;
 }) {
   const [loading, setLoading] = useState(false);
@@ -137,6 +140,7 @@ function HabitEditorForm({
     initialValues: {
       name,
       frequency,
+      description,
     },
   });
 
@@ -153,6 +157,14 @@ function HabitEditorForm({
         required
         data-autofocus
         {...form.getInputProps("name")}
+      />
+      <Space h="lg" />
+      <Textarea
+        label="Description"
+        autosize
+        minRows={2}
+        required
+        {...form.getInputProps("description")}
       />
       <Space h="lg" />
       <NumberInput
@@ -199,7 +211,11 @@ export function HabitEditorModal({
   interactor: Interactor;
   opened: boolean;
   onClose: () => void;
-  onSubmit: (values: { name: string; frequency: number }) => Promise<void>;
+  onSubmit: (values: {
+    name: string;
+    frequency: number;
+    description: string;
+  }) => Promise<void>;
   onArchive: () => Promise<void>;
 }) {
   return (
@@ -223,6 +239,7 @@ export function HabitEditorModal({
       <Paper style={{ width: "100%" }} withBorder p="md">
         <HabitEditorForm
           name={habit.Name}
+          description={habit.Description}
           frequency={habit.Frequency}
           onSubmit={onSubmit}
           onArchive={onArchive}
