@@ -40,8 +40,10 @@ func generateTestData() (testUsers map[string]User, testHabits map[string]HabitJ
 				{
 					Id:      "testUser2_habitId1_2001-01-01",
 					HabitId: "testUser2_habitId1",
-					Logged:  time.Date(2001, time.January, 1, 0, 0, 0, 0, time.UTC),
-					Status:  "SUCCESS",
+					Logged: habit_share.Time{
+						Time: time.Date(2001, time.January, 1, 0, 0, 0, 0, time.UTC),
+					},
+					Status: "SUCCESS",
 				},
 			},
 		},

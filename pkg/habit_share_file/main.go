@@ -3,6 +3,7 @@ package habit_share_file
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"sort"
 	"strings"
@@ -17,17 +18,15 @@ import (
 // TTL in seconds
 const cacheTtl = 10
 
-const DateFormat = "2006-01-02"
-
 /*
 habit_share requires a single id to identity the activity in order for our
 system to work the activity id contains the habitId
 */
-func ConstructActivityId(habitId string, logged time.Time) string {
-	return fmt.Sprintf("%s_%s", habitId, logged.Format(DateFormat))
+func ConstructActivityId(habitId string, logged habit_share.Time) string {
+	return fmt.Sprintf("%s_%s", habitId, logged.Format(habit_share.DateFormat))
 }
 
-func parseActivityId(activityId string) (habitId string, date time.Time, err error) {
+func parseActivityId(activityId string) (habitId string, date habit_share.Time, err error) {
 	lastIndex := strings.LastIndex(activityId, "_")
 	if lastIndex == -1 {
 		err = &habit_share.InputError{StringToParse: activityId}
@@ -36,7 +35,7 @@ func parseActivityId(activityId string) (habitId string, date time.Time, err err
 
 	habitId = activityId[:lastIndex]
 	dateString := activityId[lastIndex+1:]
-	date, err = time.Parse(DateFormat, dateString)
+	date.UnmarshalText([]byte(dateString))
 	if err != nil {
 		err = &habit_share.InputError{StringToParse: activityId}
 		return
@@ -321,7 +320,7 @@ func (a *HabitShareFile) CreateHabit(name string, owner string, frequency int) (
 
 // CreateActivity implements habit_share.HabitsDatabase
 // logged should be the first moments of the day under UTC. If not we transform it anyway.
-func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status string) (string, error) {
+func (a *HabitShareFile) CreateActivity(habitId string, logged habit_share.Time, status string) (string, error) {
 	if err := a.read(); err != nil {
 		return "", err
 	}
@@ -349,12 +348,12 @@ func (a *HabitShareFile) CreateActivity(habitId string, logged time.Time, status
 		appended := append(habit.Activities, habit_share.Activity{
 			Id:      activityId,
 			HabitId: habitId,
-			Logged:  time.Date(logged.Year(), logged.Month(), logged.Day(), 0, 0, 0, 0, time.UTC),
+			Logged:  logged,
 			Status:  status,
 		})
 		// sort is ascending so later times are further down the array
 		sort.Slice(appended[:], func(i, j int) bool {
-			return appended[i].Logged.Before(appended[j].Logged)
+			return appended[i].Logged.Before(appended[j].Logged.Time)
 		})
 		habit.Activities = appended
 	}
@@ -405,10 +404,13 @@ func (a *HabitShareFile) DeleteActivity(id string) error {
 
 	// activities should always be sorted
 	index := sort.Search(n, func(i int) bool {
-		return habit.Activities[i].Logged.After(date) || habit.Activities[i].Logged.Equal(date)
+		return habit.Activities[i].Logged.After(date.Time) ||
+			habit.Activities[i].Logged.Equal(date.Time)
 	})
 
 	if index == n || habit.Activities[index].Id != id {
+		log.Print(index)
+		log.Print(date.Time)
 		return habit_share.ActivityNotFoundError
 	}
 
@@ -463,15 +465,15 @@ func (a *HabitShareFile) DeleteHabit(id string) error {
 // GetActivities implements habit_share.HabitsDatabase
 func (a *HabitShareFile) GetActivities(
 	habitId string,
-	after time.Time,
-	before time.Time,
+	after habit_share.Time,
+	before habit_share.Time,
 	limit int,
 ) (activities []habit_share.Activity, hasMore bool, err error) {
 	if err := a.read(); err != nil {
 		return nil, false, err
 	}
 
-	if before.Before(after) {
+	if before.Before(after.Time) {
 		return nil, false, &habit_share.InputError{
 			StringToParse: fmt.Sprintf("before=%s after=%s", before, after),
 		}
@@ -484,13 +486,13 @@ func (a *HabitShareFile) GetActivities(
 	n := len(habit.Activities)
 
 	l := sort.Search(n, func(i int) bool {
-		return habit.Activities[i].Logged.After(after) ||
-			habit.Activities[i].Logged.Equal(after)
+		return habit.Activities[i].Logged.After(after.Time) ||
+			habit.Activities[i].Logged.Equal(after.Time)
 	})
 	r := sort.Search(n, func(i int) bool {
 		// doesn't seem right to use "After" but trust me bro :)
-		return habit.Activities[i].Logged.After(before) ||
-			habit.Activities[i].Logged.Equal(before)
+		return habit.Activities[i].Logged.After(before.Time) ||
+			habit.Activities[i].Logged.Equal(before.Time)
 	})
 
 	hasMore = false

@@ -25,7 +25,11 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				return
 			}
 			// taken from the activities endpoint
-			activities, _, err := app.GetActivities(habit.Id,time.Now().AddDate(0, 0, -7), time.Now().AddDate(0, 0, 1), 7)
+			activities, _, err := app.GetActivities(habit.Id,
+				habit_share.Time{Time: time.Now().AddDate(0, 0, -7)},
+				habit_share.Time{Time: time.Now().AddDate(0, 0, 1)},
+				7,
+			)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprintf(w, "Something has gone wrong getting activities")
@@ -44,8 +48,8 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			response := struct {
 				*habit_share.Habit
 				Activities []habit_share.Activity
-				Score int
-			}{ Habit: habit, Activities: activities, Score: score }
+				Score      int
+			}{Habit: habit, Activities: activities, Score: score}
 
 			bytes, err := json.Marshal(response)
 			if err != nil {
@@ -70,7 +74,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			}
 
 			updatePayload := struct {
-				Name string
+				Name      string
 				Frequency int
 			}{}
 			decoder := json.NewDecoder(r.Body)
@@ -216,10 +220,11 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 
 			beforeString := r.URL.Query().Get("before")
 			if beforeString == "" {
-				// before is not inclusive but we'd like today to be displayed
-				beforeString = time.Now().AddDate(0, 0, 1).Format(habit_share_file.DateFormat)
+				// before is not inclusive but we'd like today to be displayed.
+				// A second day has to be added because timezones
+				beforeString = time.Now().AddDate(0, 0, 2).Format(habit_share.DateFormat)
 			}
-			before, err := time.Parse(habit_share_file.DateFormat, beforeString)
+			before, err := time.Parse(habit_share.DateFormat, beforeString)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprintf(w, "Before query is in incorrect, must be in YYYY-mm-dd format")
@@ -227,10 +232,11 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 
 			afterString := r.URL.Query().Get("after")
 			if afterString == "" {
-				afterString = time.Now().AddDate(0, 0, -7).Format(habit_share_file.DateFormat)
+				// A day is removed because timezones
+				afterString = time.Now().AddDate(0, 0, -8).Format(habit_share.DateFormat)
 			}
 
-			after, err := time.Parse(habit_share_file.DateFormat, afterString)
+			after, err := time.Parse(habit_share.DateFormat, afterString)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprintf(w, "After query is in incorrect, must be in YYYY-mm-dd format")
@@ -252,7 +258,12 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				return
 			}
 
-			activities, hasMore, err := app.GetActivities(habit.Id, after, before, limit)
+			activities, hasMore, err := app.GetActivities(
+				habit.Id,
+				habit_share.Time{Time: after},
+				habit_share.Time{Time: before},
+				limit,
+			)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprintf(w, "Something has gone wrong getting activities")
@@ -306,7 +317,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 				return
 			}
 
-			parsedLog, err := time.Parse(habit_share_file.DateFormat, newActivity.Logged)
+			parsedLog, err := time.Parse(habit_share.DateFormat, newActivity.Logged)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprintf(w, "Bad Request, Logged must be in YYYY-mm-dd format")
@@ -314,9 +325,9 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			}
 
 			if newActivity.Status == "NOT_DONE" {
-				err = app.DeleteActivity(habit_share_file.ConstructActivityId(habit.Id, parsedLog))
+				err = app.DeleteActivity(habit_share_file.ConstructActivityId(habit.Id, habit_share.Time{Time: parsedLog}))
 			} else {
-				_, err = app.CreateActivity(habit.Id, parsedLog, newActivity.Status)
+				_, err = app.CreateActivity(habit.Id, habit_share.Time{Time: parsedLog}, newActivity.Status)
 			}
 
 			if err != nil {

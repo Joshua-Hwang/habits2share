@@ -3,7 +3,6 @@ package habit_share
 import (
 	"errors"
 	"fmt"
-	"time"
 )
 
 type Habit struct {
@@ -19,7 +18,7 @@ type Habit struct {
 type Activity struct {
 	Id      string // an Id is technically not needed but we let the database provider decide
 	HabitId string
-	Logged  time.Time
+	Logged  Time
 	Status  string
 }
 
@@ -68,9 +67,9 @@ type HabitsDatabase interface {
 	UnarchiveHabit(id string) error
 	DeleteHabit(id string) error
 
-	CreateActivity(habitId string, logged time.Time, status string) (string, error)
+	CreateActivity(habitId string, logged Time, status string) (string, error)
 	GetHabitFromActivity(activityId string) (Habit, error)
-	GetActivities(habitId string, after time.Time, before time.Time, limit int) (activities []Activity, hasMore bool, err error)
+	GetActivities(habitId string, after Time, before Time, limit int) (activities []Activity, hasMore bool, err error)
 	DeleteActivity(id string) error
 
 	GetScore(habitId string) (int, error)

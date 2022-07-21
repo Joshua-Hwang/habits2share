@@ -48,7 +48,8 @@ func importCsv(db habit_share.HabitsDatabase, owner string, csvReader *csv.Reade
 
 		// NOTE: intentionally different to habit_share.DateFormat as they are not
 		// necessarily the same
-		activityDate, err := time.Parse("2006-01-02", row[1])
+		activityRawDate, err := time.Parse("2006-01-02", row[1])
+		activityDate := habit_share.Time{Time: activityRawDate}
 		if err != nil {
 			return nil, err
 		}

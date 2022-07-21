@@ -38,7 +38,7 @@
         {
           "Id": "testUser2_habitId1_2001-01-01",
           "HabitId": "testUser2_habitId1",
-          "Logged": "2001-01-01T00:00:00Z",
+          "Logged": "2001-01-01",
           "Status": "SUCCESS"
         }
       ]

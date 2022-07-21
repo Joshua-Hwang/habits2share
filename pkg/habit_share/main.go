@@ -2,7 +2,6 @@ package habit_share
 
 import (
 	"fmt"
-	"time"
 )
 
 type App struct {
@@ -80,7 +79,7 @@ func (a *App) ChangeFrequency(id string, newFrequency int) error {
 }
 
 // CreateActivity implements HabitsDatabase
-func (a *App) CreateActivity(habitId string, logged time.Time, status string) (string, error) {
+func (a *App) CreateActivity(habitId string, logged Time, status string) (string, error) {
 	if err := a.habitOwnerCheck(habitId); err != nil {
 		return "", err
 	}
@@ -134,8 +133,8 @@ func (a *App) DeleteHabit(id string) error {
 // GetActivities implements HabitsDatabase
 func (a *App) GetActivities(
 	habitId string,
-	after time.Time,
-	before time.Time,
+	after Time,
+	before Time,
 	limit int,
 ) (activities []Activity, hasMore bool, err error) {
 	if a.habitOwnerCheck(habitId) != nil && a.habitSharedCheck(habitId) != nil {

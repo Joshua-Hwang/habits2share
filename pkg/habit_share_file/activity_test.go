@@ -1,6 +1,7 @@
 package habit_share_file
 
 import (
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 	"testing"
 	"time"
 )
@@ -12,7 +13,7 @@ func TestActivity(t *testing.T) {
 
 		activityId, err := habitShare.CreateActivity(
 			"testUser1_habitId1",
-			time.Date(1, time.January, 1, 1, 1, 1, 1, time.Local),
+			habit_share.Time{Time: time.Date(1, time.January, 1, 1, 1, 1, 1, time.Local)},
 			"SUCCESS",
 		)
 
@@ -61,7 +62,7 @@ func TestActivity(t *testing.T) {
 	t.Run("should calcuate score is 1", func(t *testing.T) {
 		testUsers, testHabits := generateTestData()
 		habitShare := HabitShareFile{Users: testUsers, Habits: testHabits}
-		_, err := habitShare.CreateActivity("testUser2_habitId1", time.Now(), "SUCCESS")
+		_, err := habitShare.CreateActivity("testUser2_habitId1", habit_share.Time{Time: time.Now()}, "SUCCESS")
 
 		score, err := habitShare.GetScore("testUser2_habitId1")
 
@@ -78,8 +79,8 @@ func TestActivity(t *testing.T) {
 		testUsers, testHabits := generateTestData()
 		habitShare := HabitShareFile{Users: testUsers, Habits: testHabits}
 
-		after := testHabits["testUser2_habitId1"].Activities[0].Logged.AddDate(0, 0, -1)
-		before := testHabits["testUser2_habitId1"].Activities[0].Logged.AddDate(0, 0, 1)
+		after := habit_share.Time{Time: testHabits["testUser2_habitId1"].Activities[0].Logged.AddDate(0, 0, -1)}
+		before := habit_share.Time{Time: testHabits["testUser2_habitId1"].Activities[0].Logged.AddDate(0, 0, 1)}
 		activities, hasMore, err := habitShare.GetActivities("testUser2_habitId1", after, before, 1)
 
 		if len(activities) != 1 {
