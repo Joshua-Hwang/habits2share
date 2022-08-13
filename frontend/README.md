@@ -1,6 +1,11 @@
-# Getting Started with Create React App
+# Simple react frontend
+Meant to be an example frontend for the habitshare webserver.
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+
+## Bugs
+
+* Errors aren't handled by the app yet.
 
 ## Available Scripts
 

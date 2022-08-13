@@ -10,6 +10,7 @@ type App struct {
 }
 
 func (a *App) habitOwnerCheck(habitId string) error {
+	// TODO fetching the habit twice is hard
 	habit, err := a.Db.GetHabit(habitId)
 	if err != nil {
 		return err

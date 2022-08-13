@@ -291,7 +291,7 @@ func (a *HabitShareFile) CreateHabit(name string, owner string, frequency int) (
 	user, ok := a.Users[owner]
 	if !ok {
 		// if user doesn't exist create user
-		user = User{MyHabits: map[string]struct{}{}, SharedHabits: map[string]struct{}{}}
+		user = User{MyHabits: make(map[string]struct{}, 0), SharedHabits: make(map[string]struct{}, 0)}
 		a.Users[owner] = user
 	}
 
@@ -531,11 +531,8 @@ func (a *HabitShareFile) GetMyHabits(owner string, limit int, archived bool) ([]
 
 	myHabits := make([]habit_share.Habit, 0, len(user.MyHabits))
 	for habitId := range user.MyHabits {
-		habit, ok := a.Habits[habitId]
-		if !ok {
-			// this is really bad
-			return nil, habit_share.HabitNotFoundError
-		}
+		// TODO: this isn't thread safe as another thread is modifying the Habits struct (I think)
+		habit := a.Habits[habitId]
 
 		// either the habit isnt archived or we're looking for archived habits
 		if !habit.Archived || archived {

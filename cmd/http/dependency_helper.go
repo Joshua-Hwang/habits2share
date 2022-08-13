@@ -2,15 +2,19 @@ package main
 
 import (
 	"fmt"
-	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 	"log"
 	"net/http"
+
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/todo"
 )
 
 type key string
 
 const appKey = key("APP")
+const todoAppKey = key("TODO_APP")
 const dbKey = key("DB")
+const todoDbKey = key("TODO_DB")
 const authDbKey = key("AUTH_DB")
 const authServiceKey = key("AUTH_SERVICE")
 const tokenParserKey = key("TOKEN_PARSER")
@@ -47,4 +51,15 @@ func injectAuth(w http.ResponseWriter, r *http.Request) (habit_share.AuthInterfa
 		return nil, false
 	}
 	return auth, true
+}
+
+func injectTodoApp(w http.ResponseWriter, r *http.Request) (*todo.App, bool) {
+	app, ok := r.Context().Value(todoAppKey).(*todo.App)
+	if !ok {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Dependency injection failed")
+		log.Printf("Dependency injection failed for todo app")
+		return nil, false
+	}
+	return app, true
 }

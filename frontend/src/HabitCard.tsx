@@ -30,12 +30,13 @@ export function SevenDayDisplay({
   disabled?: boolean;
   start?: "today" | "monday";
 }) {
-  // firstDay to be displayed
+  // firstDay to be displayed (Sunday of that week)
   // startOf("week") considers Sunday to be the start
+  // subtract 1 will round Sunday to the previous Sunday instead
   const firstDay =
     start === "today"
       ? dayjs().startOf("day")
-      : dayjs().startOf("week").add(7, "days");
+      : dayjs().subtract(1, "day").startOf("week").add(7, "days");
 
   // activities first index is earliest
   activities = activities.slice();
@@ -321,8 +322,7 @@ export function HabitCard({
             });
 
             // TODO algorithm could definitely be improved but it's only 7 entries
-            let i = 0;
-            for (; i < activities.length; i++) {
+            for (let i = 0; i < activities.length; i++) {
               // if the day is equal then change the existing entry then return
               if (day.isSame(activities[i].Logged, "day")) {
                 if (activities[i].Status !== status) {

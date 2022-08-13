@@ -94,6 +94,21 @@ func PostMyHabits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO messy as habit creation is no longer atomic. Please fix
+	err = app.ChangeDescription(habitId, newHabit.Description)
+	if err != nil {
+		if inputError := (*habit_share.InputError)(nil); errors.As(err, &inputError) {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "Input was not valid, %s", inputError)
+			return
+		}
+		// given we block anonymous requests this error would be some internal issue
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Something has gone wrong updating description of habit")
+		log.Printf("Something has gone wrong description of habit habit: %v", err)
+		return
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprint(w, habitId)
 }

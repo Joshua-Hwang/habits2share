@@ -1,0 +1,36 @@
+{
+ "UsersTodos": {
+  "testUser1": {
+   "MyTodos": {
+    "testUser1_todoId1": {
+     "Id": "testUser1_todoId1",
+     "Owner": "testUser1",
+     "Name": "hello there",
+     "Description": "first todo",
+     "DueDate": "2022-08-13T14:12:26.1031697+10:00",
+     "Completed": false
+    },
+    "testUser1_todoId2": {
+     "Id": "testUser1_todoId2",
+     "Owner": "testUser1",
+     "Name": "new todo",
+     "Description": "second todo",
+     "DueDate": "2022-08-13T14:12:26.103170023+10:00",
+     "Completed": false
+    }
+   }
+  },
+  "testUser2": {
+   "MyTodos": {
+    "testUser2_todoId1": {
+     "Id": "testUser2_todoId1",
+     "Owner": "testUser2",
+     "Name": "goodbye world",
+     "Description": "second\nitem",
+     "DueDate": "2001-01-01T00:00:00Z",
+     "Completed": false
+    }
+   }
+  }
+ }
+}

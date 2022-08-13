@@ -14,6 +14,8 @@ import (
 	"github.com/Joshua-Hwang/habits2share/pkg/auth_file"
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
+	"github.com/Joshua-Hwang/habits2share/pkg/todo"
+	"github.com/Joshua-Hwang/habits2share/pkg/todo_file"
 )
 
 func main() {
@@ -36,6 +38,10 @@ func main() {
 	if habitsFilePath == "" {
 		habitsFilePath = "habits.json"
 	}
+	todoFilePath := os.Getenv("TODO_FILE")
+	if todoFilePath == "" {
+		todoFilePath = "todo.json"
+	}
 
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 
@@ -54,12 +60,18 @@ func main() {
 		panic(err)
 	}
 
+	todoDatabase, err := todo_file.TodoFromFile(todoFilePath)
+	if err != nil {
+		panic(err)
+	}
+
 	// TODO move this to dependency helper
 	buildDependencies := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
 			ctx = context.WithValue(ctx, dbKey, habitsDatabase)
+			ctx = context.WithValue(ctx, todoDbKey, todoDatabase)
 			ctx = context.WithValue(ctx, authDbKey, authDatabase)
 			ctx = context.WithValue(ctx, tokenParserKey, tokenParser)
 
@@ -70,6 +82,9 @@ func main() {
 
 			app := &habit_share.App{Db: habitsDatabase, Auth: authService}
 			ctx = context.WithValue(ctx, appKey, app)
+
+			todoApp := &todo.App{Db: todoDatabase, Auth: authService}
+			ctx = context.WithValue(ctx, todoAppKey, todoApp)
 
 			next(w, r.WithContext(ctx))
 		}
@@ -161,6 +176,11 @@ func main() {
 	mux.RegisterHandlers("/user/", map[string]http.HandlerFunc{
 		"POST":   sessionParser(BlockAnonymous(nil, PostUserHabit)),
 		"DELETE": sessionParser(BlockAnonymous(nil, DeleteUserHabit)),
+	})
+
+	mux.RegisterHandlers("/my/todos", map[string]http.HandlerFunc{
+		"GET":  sessionParser(BlockAnonymous(nil, GetMyTodos)),
+		"POST": sessionParser(BlockAnonymous(nil, PostMyTodos)),
 	})
 
 	log.Printf("Listening on port %s", port)
