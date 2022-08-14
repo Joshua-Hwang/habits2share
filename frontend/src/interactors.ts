@@ -1,10 +1,27 @@
 import dayjs, { Dayjs } from "dayjs";
-import { Activity, Status, Habit } from "./models";
+import { Activity, Status, Habit, Todo } from "./models";
 
 // TODO throw errors
 // TODO use /habit/${habitId} endpoint which provides lots of information
 export class Interactor {
   constructor(private baseUrl: string = "") {}
+
+  public async getMyTodos(): Promise<Array<Todo>> {
+    const res = await fetch(`${this.baseUrl}/my/todos`);
+    const rawJson = (await res.json()) as Array<{
+      Id: string;
+      Owner: string;
+      Name: string;
+      Description: string;
+      Completed: boolean;
+      DueDate: string;
+    }>;
+    const parsedTodos = rawJson.map((todo) => ({
+      ...todo,
+      DueDate: dayjs(todo.DueDate),
+    }));
+    return parsedTodos;
+  }
 
   public async getMyHabits(): Promise<Array<Habit>> {
     const res = await fetch(`${this.baseUrl}/my/habits`);
@@ -80,6 +97,17 @@ export class Interactor {
     return await res.text();
   }
 
+  public async createTodo(name: string, description: string, dueDate: dayjs.Dayjs): Promise<string> {
+    const res = await fetch(`${this.baseUrl}/my/todos`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ Name: name, Description: description, DueDate: dueDate }),
+    });
+    return await res.text();
+  }
+
   public async createHabit(name: string, frequency: number): Promise<string> {
     const res = await fetch(`${this.baseUrl}/my/habits`, {
       method: "POST",
@@ -89,6 +117,28 @@ export class Interactor {
       body: JSON.stringify({ Name: name, Frequency: frequency }),
     });
     return await res.text();
+  }
+
+  public async updateTodo(
+    todoId: string,
+    name: string,
+    description: string,
+    dueDate: dayjs.Dayjs,
+    completed: boolean,
+  ): Promise<void> {
+    await fetch(`${this.baseUrl}/todo/${todoId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        Name: name,
+        Description: description,
+        DueDate: dueDate.format(),
+        Completed: completed,
+      }),
+    });
+    // TODO throw if not okay
   }
 
   public async updateHabit(

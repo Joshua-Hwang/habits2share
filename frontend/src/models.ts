@@ -21,3 +21,12 @@ export type Activity = {
   Logged: Dayjs;
   Status: Status;
 };
+
+export type Todo = {
+  Id: string;
+  Owner: string;
+  Name: string;
+  Description: string;
+  Completed: boolean;
+  DueDate: Dayjs;
+};

@@ -183,6 +183,38 @@ func main() {
 		"POST": sessionParser(BlockAnonymous(nil, PostMyTodos)),
 	})
 
+	{
+		pathPrefix := "/todo/"
+		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix,
+			sessionParser(BlockAnonymous(nil, func(w http.ResponseWriter, r *http.Request) {
+				// get habitId
+				todoId, remainingUrl, _ := strings.Cut(r.URL.EscapedPath(), "/")
+				// the slash is removed during cut
+				remainingUrl = fmt.Sprintf("/%s?%s", remainingUrl, r.URL.Query().Encode())
+				r.URL, _ = url.Parse(remainingUrl)
+
+				app, ok := injectTodoApp(w, r)
+				if !ok {
+					return
+				}
+
+				todoItem, err := app.GetTodo(todoId)
+				if err != nil {
+					if err == todo.TodoNotFoundError {
+						http.NotFound(w, r)
+						return
+					}
+					w.WriteHeader(http.StatusInternalServerError)
+					fmt.Fprintf(w, "Failed to retrieve habit %v", err)
+					log.Printf("Failed to retrieve habit %v", err)
+				}
+
+				habitHandler := BuildTodoHandler(&todoItem)
+				habitHandler.ServeHTTP(w, r)
+			})),
+		))
+	}
+
 	log.Printf("Listening on port %s", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), mux))
 }

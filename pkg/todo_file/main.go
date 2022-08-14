@@ -135,7 +135,7 @@ func (a *TodoFile) ChangeDescription(id string, newDescription string) error {
 	} else {
 		todo.Description = newDescription
 		user.MyTodos[id] = todo
-		a.UsersTodos[userId] = user
+		a.UsersTodos[userId] = user // TODO this is a concurrent write to the map. Please fix
 	}
 
 	err = a.write()
