@@ -1,4 +1,4 @@
-import { Button, Group, Modal, Space, TextInput } from "@mantine/core";
+import { Button, Group, Modal, Space, Textarea, TextInput } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import dayjs from "dayjs";
@@ -20,8 +20,8 @@ export function TodoCreatorModal({
   const form = useForm({
     initialValues: {
       name: "",
-      dueDate: new Date(),
       description: "",
+      dueDate: new Date(),
     },
   });
   const [loading, setLoading] = useState(false);
@@ -40,6 +40,14 @@ export function TodoCreatorModal({
           required
           data-autofocus
           {...form.getInputProps("name")}
+        />
+        <Space h="lg" />
+        <Textarea
+          label="Description"
+          autosize
+          minRows={2}
+          required
+          {...form.getInputProps("description")}
         />
         <Space h="lg" />
         <DatePicker
