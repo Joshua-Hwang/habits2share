@@ -185,7 +185,7 @@ export function HabitCard({
         activitiesDispatch({ action: "overwrite", array: Activities });
 
         // start of week is technically Sunday but I think it's Monday
-        const startOfWeek = dayjs().startOf("week").add(1, "day");
+        const startOfWeek = dayjs().subtract(1, "day").startOf("week").add(1, "day");
         let activitiesThisWeek = Activities.length;
 
         for (let i = Activities.length - 1; i >= 0; i--) {

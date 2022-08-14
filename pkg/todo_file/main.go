@@ -66,10 +66,9 @@ func TodoFromFile(filename string) (*TodoFile, error) {
 }
 
 func (a *TodoFile) read() error {
+	a.fileLock.Lock()
+	defer a.fileLock.Unlock()
 	if a.filename != "" && time.Since(a.lastRead) > time.Duration(cacheTtl*float64(time.Second)) {
-		a.fileLock.Lock()
-		defer a.fileLock.Unlock()
-
 		content, err := os.ReadFile(a.filename)
 		a.lastRead = time.Now()
 		if err != nil || len(content) == 0 {
@@ -92,10 +91,9 @@ func (a *TodoFile) read() error {
 }
 
 func (a *TodoFile) write() error {
+	a.fileLock.Lock()
+	defer a.fileLock.Unlock()
 	if a.filename != "" {
-		a.fileLock.Lock()
-		defer a.fileLock.Unlock()
-
 		file, err := os.OpenFile(a.filename, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			return err
