@@ -322,7 +322,7 @@ function TodoTab({
             color="green"
             onClick={() => setNewTodoModalOpened(true)}
           >
-            Create a new todo
+            Create a new to do item
           </Button>
           {loadingMyTodos ? (
             <Center>
@@ -354,10 +354,7 @@ function TodoTab({
                       size="xs"
                       color={todo.DueDate.isBefore(dayjs()) ? "red" : "black"}
                     >
-                      {
-                        // TODO think of better format
-                      }
-                      Due date: {todo.DueDate.format()}
+                      Due date: {todo.DueDate.format('ddd DD MMM YYYY')}
                     </Text>
                   </Group>
                   <Group>

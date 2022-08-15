@@ -27,16 +27,17 @@ export function TodoCreatorModal({
   const [loading, setLoading] = useState(false);
 
   return (
-    <Modal title="New todo" size="xs" opened={opened} onClose={onClose}>
+    <Modal title="New to do item" size="xs" opened={opened} onClose={onClose}>
       <form
         onSubmit={form.onSubmit(async (values) => {
           setLoading(true);
-          await onSubmit({ ...values, dueDate: dayjs(values.dueDate) });
+          await onSubmit({ ...values, dueDate: dayjs(values.dueDate).endOf("day") });
+          form.reset();
           setLoading(false);
         })}
       >
         <TextInput
-          label="Todo name"
+          label="To do item name"
           required
           data-autofocus
           {...form.getInputProps("name")}
@@ -46,7 +47,6 @@ export function TodoCreatorModal({
           label="Description"
           autosize
           minRows={2}
-          required
           {...form.getInputProps("description")}
         />
         <Space h="lg" />

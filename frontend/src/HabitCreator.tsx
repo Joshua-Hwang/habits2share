@@ -37,6 +37,7 @@ export function HabitCreatorModal({
         onSubmit={form.onSubmit(async (values) => {
           setLoading(true);
           await onSubmit(values);
+          form.reset();
           setLoading(false);
         })}
       >

@@ -3,9 +3,10 @@ Meant to be an example frontend for the habitshare webserver.
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-## Bugs
+## Bugs and To dos
 
 * Errors aren't handled by the app yet.
+* Sort the todo items by due date
 
 ## Available Scripts
 
