@@ -344,7 +344,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			}
 
 			if newActivity.Status == "NOT_DONE" {
-				err = app.DeleteActivity(habit_share_file.ConstructActivityId(habit.Id, habit_share.Time{Time: parsedLog}))
+				err = app.DeleteActivity(habit.Id, habit_share_file.ConstructActivityId(habit.Id, habit_share.Time{Time: parsedLog}))
 			} else {
 				_, err = app.CreateActivity(habit.Id, habit_share.Time{Time: parsedLog}, newActivity.Status)
 			}

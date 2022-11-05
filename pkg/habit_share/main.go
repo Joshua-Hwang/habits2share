@@ -9,12 +9,16 @@ type App struct {
 	Auth AuthInterface
 }
 
-func (a *App) habitOwnerCheck(habitId string) error {
-	// TODO fetching the habit twice is hard
-	habit, err := a.Db.GetHabit(habitId)
-	if err != nil {
-		return err
-	}
+func (a *App) habitOwnerCheck(habit Habit) error {
+	// Instead of fetching the habit here let the developer provide the habit
+	// themselves Technically I'm the only developer so not a huge deal API is
+	// now coupled but it's plainly revealed in the parameters so also not a huge
+	// deal Another annoying point is the developer is now faced with two
+	// potential points of failure getting the habit fails THEN if the auth check
+	// fails Maybe this is fine since it's possible to create the habit
+	// themselves (unlikely use case) Often it seems the habit gets used
+	// immediately afterwards to there are few scenarios where purely the auth
+	// check needs the habit
 
 	user, err := a.Auth.GetCurrentUser()
 	if err != nil {
@@ -28,12 +32,16 @@ func (a *App) habitOwnerCheck(habitId string) error {
 	return nil
 }
 
-func (a *App) habitSharedCheck(habitId string) error {
+func (a *App) habitIdOwnerCheck(habitId string) error {
 	habit, err := a.Db.GetHabit(habitId)
 	if err != nil {
 		return err
 	}
 
+	return a.habitOwnerCheck(habit)
+}
+
+func (a *App) habitSharedCheck(habit Habit) error {
 	user, err := a.Auth.GetCurrentUser()
 	if err != nil {
 		return err
@@ -48,40 +56,39 @@ func (a *App) habitSharedCheck(habitId string) error {
 
 // ArchiveHabit implements HabitsDatabase
 func (a *App) ArchiveHabit(id string) error {
-	if err := a.habitOwnerCheck(id); err != nil {
+	habit, err := a.Db.GetHabit(id)
+	if err != nil {
+		return err
+	}
+	if err := a.habitOwnerCheck(habit); err != nil {
 		return err
 	}
 
-	// yes we're grabbing the habit twice but I don't think there's a way to
-	// provide the optimisation where the habit object gets shared around then
-	// upserted back to the db
-	// in sql you would add the owner condition in the where clause making this
-	// operation very fast.
-	// I return to the argument of orthogonality. These are different actions
-	// that happen to share state. The modification of activities does not help
-	// verifying against the habit's owner.
-
-	// IF this (or similar operations) needed optmisation I would delegate this
-	// entire function (and auth logic) to the underlying detail documenting that
-	// this operation needs to be as fast as possible given auth constraints.
-	return a.Db.ArchiveHabit(id)
+	habit.Archived = true
+	return a.Db.SetHabit(id, habit)
 }
 
 // ChangeFrequency implements HabitsDatabase
 func (a *App) ChangeFrequency(id string, newFrequency int) error {
-	if err := a.habitOwnerCheck(id); err != nil {
+
+	habit, err := a.Db.GetHabit(id)
+	if err != nil {
+		return err
+	}
+	if err := a.habitOwnerCheck(habit); err != nil {
 		return err
 	}
 
 	if newFrequency < 1 || newFrequency > 7 {
 		return &InputError{StringToParse: fmt.Sprint(newFrequency)}
 	}
-	return a.Db.ChangeFrequency(id, newFrequency)
+	habit.Frequency = newFrequency
+	return a.Db.SetHabit(id, habit)
 }
 
 // CreateActivity implements HabitsDatabase
 func (a *App) CreateActivity(habitId string, logged Time, status string) (string, error) {
-	if err := a.habitOwnerCheck(habitId); err != nil {
+	if err := a.habitIdOwnerCheck(habitId); err != nil {
 		return "", err
 	}
 
@@ -105,26 +112,22 @@ func (a *App) CreateHabit(name string, frequency int) (string, error) {
 		return "", &InputError{StringToParse: fmt.Sprint(frequency)}
 	}
 
-	return a.Db.CreateHabit(name, user, frequency)
+	habit := Habit{Owner: user, Name: name, Frequency: frequency}
+	return a.Db.CreateHabit(habit)
 }
 
 // DeleteActivity implements HabitsDatabase
-func (a *App) DeleteActivity(id string) error {
-	habit, err := a.Db.GetHabitFromActivity(id)
-	if err != nil {
+func (a *App) DeleteActivity(habitId string, id string) error {
+	if err := a.habitIdOwnerCheck(habitId); err != nil {
 		return err
 	}
 
-	if err := a.habitOwnerCheck(habit.Id); err != nil {
-		return err
-	}
-
-	return a.Db.DeleteActivity(id)
+	return a.Db.DeleteActivity(habitId, id)
 }
 
 // DeleteHabit implements HabitsDatabase
 func (a *App) DeleteHabit(id string) error {
-	if err := a.habitOwnerCheck(id); err != nil {
+	if err := a.habitIdOwnerCheck(id); err != nil {
 		return err
 	}
 
@@ -138,7 +141,11 @@ func (a *App) GetActivities(
 	before Time,
 	limit int,
 ) (activities []Activity, hasMore bool, err error) {
-	if a.habitOwnerCheck(habitId) != nil && a.habitSharedCheck(habitId) != nil {
+	habit, err := a.Db.GetHabit(habitId)
+	if err != nil {
+		return nil, false, err
+	}
+	if a.habitOwnerCheck(habit) != nil && a.habitSharedCheck(habit) != nil {
 		return nil, false, HabitNotFoundError
 	}
 
@@ -147,7 +154,11 @@ func (a *App) GetActivities(
 
 // GetHabit implements HabitsDatabase
 func (a *App) GetHabit(id string) (Habit, error) {
-	if a.habitOwnerCheck(id) != nil && a.habitSharedCheck(id) != nil {
+	habit, err := a.Db.GetHabit(id)
+	if err != nil {
+		return Habit{}, err
+	}
+	if a.habitOwnerCheck(habit) != nil && a.habitSharedCheck(habit) != nil {
 		return Habit{}, HabitNotFoundError
 	}
 
@@ -161,20 +172,25 @@ func (a *App) GetMyHabits(limit int, archived bool) ([]Habit, error) {
 		return nil, err
 	}
 
-	return a.Db.GetMyHabits(user, limit, archived);
+	return a.Db.GetMyHabits(user, limit, archived)
 }
 
 // GetScore implements HabitsDatabase
 func (a *App) GetScore(habitId string) (int, error) {
-	if err := a.habitOwnerCheck(habitId); err != nil {
-		if err := a.habitSharedCheck(habitId); err != nil {
+	habit, err := a.Db.GetHabit(habitId)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := a.habitOwnerCheck(habit); err != nil {
+		if err := a.habitSharedCheck(habit); err != nil {
 			// neither owned nor shared
 			return 0, err
 		}
 		// not owner but shared
 	}
 
-	return a.Db.GetScore(habitId);
+	return a.Db.GetScore(habitId)
 }
 
 // GetSharedHabits implements HabitsDatabase
@@ -184,40 +200,56 @@ func (a *App) GetSharedHabits(limit int) ([]Habit, error) {
 		return nil, err
 	}
 
-	return a.Db.GetSharedHabits(user, limit);
+	return a.Db.GetSharedHabits(user, limit)
 }
 
 // GetSharedWith implements HabitsDatabase
 func (a *App) GetSharedWith(habitId string) (map[string]struct{}, error) {
-	if a.habitOwnerCheck(habitId) != nil && a.habitSharedCheck(habitId) != nil {
+	habit, err := a.Db.GetHabit(habitId)
+	if err != nil {
+		return nil, err
+	}
+	if a.habitOwnerCheck(habit) != nil && a.habitSharedCheck(habit) != nil {
 		return nil, HabitNotFoundError
 	}
 
-	return a.Db.GetSharedWith(habitId);
+	return habit.SharedWith, nil
 }
 
 // ChangeName implements HabitsDatabase
 func (a *App) ChangeName(id string, newName string) error {
-	if err := a.habitOwnerCheck(id); err != nil {
+	habit, err := a.Db.GetHabit(id)
+	if err != nil {
+		return err
+	}
+
+	if err := a.habitOwnerCheck(habit); err != nil {
 		return err
 	}
 
 	// TODO disallow characters like \n for readability
-	return a.Db.ChangeName(id, newName)
+	habit.Name = newName;
+	return a.Db.SetHabit(id, habit)
 }
 
 // ChangeDescription
 func (a *App) ChangeDescription(id string, newDescription string) error {
-	if err := a.habitOwnerCheck(id); err != nil {
+	habit, err := a.Db.GetHabit(id)
+	if err != nil {
 		return err
 	}
 
-	return a.Db.ChangeDescription(id, newDescription)
+	if err := a.habitOwnerCheck(habit); err != nil {
+		return err
+	}
+
+	habit.Description = newDescription
+	return a.Db.SetHabit(id, habit)
 }
 
 // ShareHabit implements HabitsDatabase
 func (a *App) ShareHabit(habitId string, friend string) error {
-	if err := a.habitOwnerCheck(habitId); err != nil {
+	if err := a.habitIdOwnerCheck(habitId); err != nil {
 		return err
 	}
 
@@ -226,7 +258,7 @@ func (a *App) ShareHabit(habitId string, friend string) error {
 
 // UnShareHabit implements HabitsDatabase
 func (a *App) UnShareHabit(habitId string, friend string) error {
-	if err := a.habitOwnerCheck(habitId); err != nil {
+	if err := a.habitIdOwnerCheck(habitId); err != nil {
 		return err
 	}
 
@@ -235,9 +267,15 @@ func (a *App) UnShareHabit(habitId string, friend string) error {
 
 // UnarchiveHabit implements HabitsDatabase
 func (a *App) UnarchiveHabit(id string) error {
-	if err := a.habitOwnerCheck(id); err != nil {
+	habit, err := a.Db.GetHabit(id)
+	if err != nil {
 		return err
 	}
 
-	return a.Db.UnarchiveHabit(id)
+	if err := a.habitOwnerCheck(habit); err != nil {
+		return err
+	}
+
+	habit.Archived = false;
+	return a.Db.SetHabit(id, habit)
 }

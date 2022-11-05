@@ -33,7 +33,7 @@ func TestActivity(t *testing.T) {
 		testUsers, testHabits := generateTestData()
 		habitShare := HabitShareFile{Users: testUsers, Habits: testHabits}
 
-		err := habitShare.DeleteActivity("testUser2_habitId1_2001-01-01")
+		err := habitShare.DeleteActivity("testUser2_habitId1", "testUser2_habitId1_2001-01-01")
 
 		if err != nil {
 			t.Fatal("DeleteActivity returned error unexpectedly:", err)

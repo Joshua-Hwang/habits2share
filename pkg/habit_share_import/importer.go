@@ -57,7 +57,8 @@ func importCsv(db habit_share.HabitsDatabase, owner string, csvReader *csv.Reade
 		// check if name is in nameToHabitId
 		if _, ok := nameToHabitId[row[0]]; !ok {
 			// NOTE: The csv doesn't provide frequency info
-			habitId, err := db.CreateHabit(row[0], owner, 7)
+
+			habitId, err := db.CreateHabit(habit_share.Habit{Name: row[0], Owner: owner, Frequency: 7})
 			if err != nil {
 				return nil, err
 			}

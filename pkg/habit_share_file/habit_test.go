@@ -9,7 +9,8 @@ func TestHabit(t *testing.T) {
 	t.Run("should create a habit and user", func(t *testing.T) {
 		habitShare := HabitShareFile{Users: map[string]User{}, Habits: map[string]HabitJson{}}
 
-		habitId, err := habitShare.CreateHabit("new habit", "newOwner", 2)
+		habit := habit_share.Habit{Name: "new habit", Owner: "newOwner", Frequency: 2}
+		habitId, err := habitShare.CreateHabit(habit)
 		if err != nil {
 			t.Fatal("CreateHabit returned error unexpectedly: ", err)
 		}
@@ -39,7 +40,8 @@ func TestHabit(t *testing.T) {
 	t.Run("should get habit which exists", func(t *testing.T) {
 		habitShare := HabitShareFile{Users: map[string]User{}, Habits: map[string]HabitJson{}}
 
-		habitId, err := habitShare.CreateHabit("new habit", "newOwner", 2)
+		newHabit := habit_share.Habit{Name: "new habit", Owner: "newOwner", Frequency: 2}
+		habitId, err := habitShare.CreateHabit(newHabit)
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}
@@ -57,7 +59,8 @@ func TestHabit(t *testing.T) {
 	t.Run("should archive a habit", func(t *testing.T) {
 		habitShare := HabitShareFile{Users: map[string]User{}, Habits: map[string]HabitJson{}}
 
-		habitId, err := habitShare.CreateHabit("new habit", "newOwner", 2)
+		habit := habit_share.Habit{Name: "new habit", Owner: "newOwner", Frequency: 2}
+		habitId, err := habitShare.CreateHabit(habit)
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}
@@ -71,12 +74,14 @@ func TestHabit(t *testing.T) {
 	t.Run("should rename a habit", func(t *testing.T) {
 		habitShare := HabitShareFile{Users: map[string]User{}, Habits: map[string]HabitJson{}}
 
-		habitId, err := habitShare.CreateHabit("new habit", "newOwner", 2)
+		newHabit := habit_share.Habit{Name: "new habit", Owner: "newOwner", Frequency: 2}
+		habitId, err := habitShare.CreateHabit(newHabit)
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}
 
-		err = habitShare.ChangeName(habitId, "new name")
+		newHabit.Name = "new name"
+		err = habitShare.SetHabit(habitId, newHabit)
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}
@@ -94,12 +99,14 @@ func TestHabit(t *testing.T) {
 	t.Run("should change frequency of habit", func(t *testing.T) {
 		habitShare := HabitShareFile{Users: map[string]User{}, Habits: map[string]HabitJson{}}
 
-		habitId, err := habitShare.CreateHabit("new habit", "newOwner", 2)
+		newHabit := habit_share.Habit{Name: "new habit", Owner: "newOwner", Frequency: 2}
+		habitId, err := habitShare.CreateHabit(newHabit)
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}
 
-		err = habitShare.ChangeFrequency(habitId, 7)
+		newHabit.Frequency = 7
+		err = habitShare.SetHabit(habitId, newHabit)
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}
@@ -129,7 +136,8 @@ func TestHabit(t *testing.T) {
 			Habits: map[string]HabitJson{},
 		}
 
-		habitId, err := habitShare.CreateHabit("new habit", "newOwner", 2)
+		newHabit := habit_share.Habit{Name: "new habit", Owner: "newOwner", Frequency: 2}
+		habitId, err := habitShare.CreateHabit(newHabit)
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}
@@ -165,7 +173,8 @@ func TestHabit(t *testing.T) {
 		}
 
 		// this is sharing the app
-		habitId, err := habitShare.CreateHabit("new habit", "newOwner", 2)
+		newHabit := habit_share.Habit{Name: "new habit", Owner: "newOwner", Frequency: 2}
+		habitId, err := habitShare.CreateHabit(newHabit)
 		if err != nil {
 			t.Fatal("expected no error got ", err)
 		}

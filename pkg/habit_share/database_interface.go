@@ -45,11 +45,21 @@ const (
 	ActivityNotDone = "NOT_DONE"
 )
 
+/*
+Thoughts on the current API.
+So I made this reflecting on Clean Architecture. I defined, from the habit
+share's perspective, the actions necessary to run.
+This API is quite verbose though.
+
+The operations to change different attributes of the Habit could probably be reduced.
+Don't forget habit_share defines the struct. The database providers should know about the struct.
+Additionally we're replicating the data on either side of this API boundary (not a huge deal given how ephemeral the habit_share side is).
+*/
 type HabitsDatabase interface {
-	CreateHabit(name string, owner string, frequency int) (string, error)
+	// Not sure this is a good idea. Instead to create a habit struct and the habit id is populated for you and also returned
+	CreateHabit(newHabit Habit) (string, error)
 	ShareHabit(habitId string, friend string) error
 	UnShareHabit(habitId string, friend string) error
-	GetSharedWith(habitId string) (map[string]struct{}, error)
 	// the value returned should not be modified in case of an in-memory database
 	// avoiding copying
 	GetMyHabits(owner string, limit int, archived bool) ([]Habit, error)
@@ -58,19 +68,14 @@ type HabitsDatabase interface {
 	// the value returned should not be modified in case of an in-memory database
 	// avoiding copying
 	GetHabit(id string) (Habit, error)
-	ChangeName(id string, newName string) error
-	// frequency should technically be checked (1-7) in this part prior to sending
-	// request to underlying implementation
-	ChangeFrequency(id string, newFrequency int) error
-	ChangeDescription(id string, newDescription string) error
-	ArchiveHabit(id string) error
-	UnarchiveHabit(id string) error
+
+	SetHabit(habitId string, updatedHabit Habit) error;
+
 	DeleteHabit(id string) error
 
 	CreateActivity(habitId string, logged Time, status string) (string, error)
-	GetHabitFromActivity(activityId string) (Habit, error)
 	GetActivities(habitId string, after Time, before Time, limit int) (activities []Activity, hasMore bool, err error)
-	DeleteActivity(id string) error
+	DeleteActivity(habitId, id string) error
 
 	GetScore(habitId string) (int, error)
 }

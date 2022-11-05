@@ -72,6 +72,24 @@ type HabitShareFile struct {
 
 var _ habit_share.HabitsDatabase = (*HabitShareFile)(nil)
 
+// SetHabit implements habit_share.HabitsDatabase
+func (a *HabitShareFile) SetHabit(habitId string, updatedHabit habit_share.Habit) error {
+	habit, ok := a.Habits[habitId]
+	if !ok {
+		return habit_share.HabitNotFoundError
+	}
+
+	habit.Habit = updatedHabit
+	a.Habits[habitId] = habit
+
+	err := a.write()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func HabitShareFromFile(filename string) (*HabitShareFile, error) {
 	var habitShareFile HabitShareFile
 	habitShareFile.filename = filename
@@ -240,82 +258,34 @@ func (a *HabitShareFile) ArchiveHabit(id string) error {
 	return nil
 }
 
-// ChangeFrequency implements habit_share.HabitsDatabase
-func (a *HabitShareFile) ChangeFrequency(id string, newFrequency int) error {
-	if err := a.read(); err != nil {
-		return err
-	}
-
-	if habit, ok := a.Habits[id]; !ok {
-		return habit_share.HabitNotFoundError
-	} else {
-		habit.Frequency = newFrequency
-		a.Habits[id] = habit
-	}
-
-	err := a.write()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// ChangeDescription implements habit_share.HabitsDatabase
-func (a *HabitShareFile) ChangeDescription(id string, newDescription string) error {
-	if err := a.read(); err != nil {
-		return err
-	}
-
-	if habit, ok := a.Habits[id]; !ok {
-		return habit_share.HabitNotFoundError
-	} else {
-		habit.Description = newDescription
-		a.Habits[id] = habit
-	}
-
-	err := a.write()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // CreateHabit implements habit_share.HabitsDatabase
-func (a *HabitShareFile) CreateHabit(name string, owner string, frequency int) (string, error) {
+func (a *HabitShareFile) CreateHabit(newHabit habit_share.Habit) (string, error) {
 	if err := a.read(); err != nil {
 		return "", err
 	}
 
-	user, ok := a.Users[owner]
+	user, ok := a.Users[newHabit.Owner]
 	if !ok {
 		// if user doesn't exist create user
 		user = User{MyHabits: make(map[string]struct{}, 0), SharedHabits: make(map[string]struct{}, 0)}
-		a.Users[owner] = user
+		a.Users[newHabit.Owner] = user
 	}
 
 	// Create new habit to ensure we don't modify newHabit parameter
-	habit := habit_share.Habit{
-		Id:         fmt.Sprintf("%s_%s", owner, uuid.NewString()),
-		Owner:      owner, // strings are immutable so we're fine adding this without copying
-		Name:       name,
-		Frequency:  frequency,
-		Archived:   false,
-		SharedWith: make(map[string]struct{}, 0),
-	}
+	newHabit.Id = fmt.Sprintf("%s_%s", newHabit.Owner, uuid.NewString())
+	newHabit.SharedWith = make(map[string]struct{}, 0)
 
 	// We could probably perform a collision check
-	a.Habits[habit.Id] = HabitJson{Habit: habit, Activities: make([]habit_share.Activity, 0)}
+	a.Habits[newHabit.Id] = HabitJson{Habit: newHabit, Activities: make([]habit_share.Activity, 0)}
 
-	user.MyHabits[habit.Id] = struct{}{}
+	user.MyHabits[newHabit.Id] = struct{}{}
 
 	err := a.write()
 	if err != nil {
-		return habit.Id, err
+		return newHabit.Id, err
 	}
 
-	return habit.Id, nil
+	return newHabit.Id, nil
 }
 
 // CreateActivity implements habit_share.HabitsDatabase
@@ -387,12 +357,15 @@ func (a *HabitShareFile) GetHabitFromActivity(activityId string) (habit_share.Ha
 }
 
 // DeleteActivity implements habit_share.HabitsDatabase
-func (a *HabitShareFile) DeleteActivity(id string) error {
+func (a *HabitShareFile) DeleteActivity(habitId string, id string) error {
 	// I think this is the most efficient as I expect usage to be near the most
 	// recent (end of array)
-	habitId, date, err := parseActivityId(id)
+	derivedHabitId, date, err := parseActivityId(id)
 	if err != nil {
 		return err
+	}
+	if derivedHabitId != habitId {
+		return &habit_share.InputError{StringToParse: fmt.Sprintf("habitId=%s activityId=%s", habitId, derivedHabitId)}
 	}
 
 	habit, ok := a.Habits[habitId]
@@ -648,39 +621,4 @@ func (a *HabitShareFile) GetScore(habitId string) (int, error) {
 	}
 
 	return totalScore, nil
-}
-
-// ChangeName implements habit_share.HabitsDatabase
-func (a *HabitShareFile) ChangeName(id string, newName string) error {
-	habit, ok := a.Habits[id]
-	if !ok {
-		return habit_share.HabitNotFoundError
-	}
-
-	habit.Name = newName
-	a.Habits[id] = habit
-
-	err := a.write()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// UnarchiveHabit implements habit_share.HabitsDatabase
-func (a *HabitShareFile) UnarchiveHabit(id string) error {
-	if habit, ok := a.Habits[id]; !ok {
-		return habit_share.HabitNotFoundError
-	} else {
-		habit.Archived = false
-		a.Habits[id] = habit
-	}
-
-	err := a.write()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

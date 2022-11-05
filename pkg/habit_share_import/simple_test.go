@@ -4,14 +4,13 @@ import (
 	"encoding/csv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 )
 
 // TODO we don't need to mock all of this right?
 type HabitsDatabaseMock struct {
-	CreateHabitImplementation func(name string, owner string, frequency int) (string, error)
+	CreateHabitImplementation func(habit habit_share.Habit) (string, error)
 	CreateHabitCalled int
 	ShareHabitImplementation func(habitId string, friend string) error
 	ShareHabitCalled int
@@ -30,26 +29,18 @@ type HabitsDatabaseMock struct {
 	// avoiding copying
 	GetHabitImplementation func(id string) (habit_share.Habit, error)
 	GetHabitCalled int
-	ChangeNameImplementation func(id string, newName string) error
-	ChangeNameCalled int
-	// frequency should technically be checked (1-7) in this part prior to sending
-	// request to underlying implementation
-	ChangeFrequencyImplementation func(id string, newFrequency int) error
-	ChangeFrequencyCalled int
-	ArchiveHabitImplementation func(id string) error
-	ArchiveHabitCalled int
-	UnarchiveHabitImplementation func(id string) error
-	UnarchiveHabitCalled int
+	SetHabitImplementation func(id string, habit habit_share.Habit) error
+	SetHabitCalled int
 	DeleteHabitImplementation func(id string) error
 	DeleteHabitCalled int
 
-	CreateActivityImplementation func(habitId string, logged time.Time, status string) (string, error)
+	CreateActivityImplementation func(habitId string, logged habit_share.Time, status string) (string, error)
 	CreateActivityCalled int
 	GetHabitFromActivityImplementation func(activityId string) (habit_share.Habit, error)
 	GetHabitFromActivityCalled int
-	GetActivitiesImplementation func(habitId string, after time.Time, before time.Time, limit int) (activities []habit_share.Activity, hasMore bool, err error)
+	GetActivitiesImplementation func(habitId string, after habit_share.Time, before habit_share.Time, limit int) (activities []habit_share.Activity, hasMore bool, err error)
 	GetActivitiesCalled int
-	DeleteActivityImplementation func(id string) error
+	DeleteActivityImplementation func(habitId string, id string) error
 	DeleteActivityCalled int
 
 	GetScoreImplementation func(habitId string) (int, error)
@@ -57,39 +48,27 @@ type HabitsDatabaseMock struct {
 }
 
 // ArchiveHabit implements habit_share.HabitsDatabase
-func (mock *HabitsDatabaseMock) ArchiveHabit(id string) error {
-	mock.ArchiveHabitCalled++
-	return mock.ArchiveHabitImplementation(id)
-}
-
-// ChangeFrequency implements habit_share.HabitsDatabase
-func (mock *HabitsDatabaseMock) ChangeFrequency(id string, newFrequency int) error {
-	mock.ChangeFrequencyCalled++
-	return mock.ChangeFrequencyImplementation(id, newFrequency)
-}
-
-// ChangeName implements habit_share.HabitsDatabase
-func (mock *HabitsDatabaseMock) ChangeName(id string, newName string) error {
-	mock.ChangeNameCalled++
-	return mock.ChangeNameImplementation(id, newName)
+func (mock *HabitsDatabaseMock) SetHabit(id string, habit habit_share.Habit) error {
+	mock.SetHabitCalled++
+	return mock.SetHabitImplementation(id, habit)
 }
 
 // CreateActivity implements habit_share.HabitsDatabase
-func (mock *HabitsDatabaseMock) CreateActivity(habitId string, logged time.Time, status string) (string, error) {
+func (mock *HabitsDatabaseMock) CreateActivity(habitId string, logged habit_share.Time, status string) (string, error) {
 	mock.CreateActivityCalled++
 	return mock.CreateActivityImplementation(habitId, logged, status)
 }
 
 // CreateHabit implements habit_share.HabitsDatabase
-func (mock *HabitsDatabaseMock) CreateHabit(name string, owner string, frequency int) (string, error) {
+func (mock *HabitsDatabaseMock) CreateHabit(habit habit_share.Habit) (string, error) {
 	mock.CreateHabitCalled++
-	return mock.CreateHabitImplementation(name, owner, frequency)
+	return mock.CreateHabitImplementation(habit)
 }
 
 // DeleteActivity implements habit_share.HabitsDatabase
-func (mock *HabitsDatabaseMock) DeleteActivity(id string) error {
+func (mock *HabitsDatabaseMock) DeleteActivity(habitId string, id string) error {
 	mock.DeleteActivityCalled++
-	return mock.DeleteActivityImplementation(id)
+	return mock.DeleteActivityImplementation(habitId, id)
 }
 
 // DeleteHabit implements habit_share.HabitsDatabase
@@ -99,7 +78,7 @@ func (mock *HabitsDatabaseMock) DeleteHabit(id string) error {
 }
 
 // GetActivities implements habit_share.HabitsDatabase
-func (mock *HabitsDatabaseMock) GetActivities(habitId string, after time.Time, before time.Time, limit int) (activities []habit_share.Activity, hasMore bool, err error) {
+func (mock *HabitsDatabaseMock) GetActivities(habitId string, after habit_share.Time, before habit_share.Time, limit int) (activities []habit_share.Activity, hasMore bool, err error) {
 	mock.GetActivitiesCalled++
 	return mock.GetActivitiesImplementation(habitId, after, before, limit)
 }
@@ -152,18 +131,13 @@ func (mock *HabitsDatabaseMock) UnShareHabit(habitId string, friend string) erro
 	return mock.UnShareHabitImplementation(habitId, friend)
 }
 
-// UnarchiveHabit implements habit_share.HabitsDatabase
-func (mock *HabitsDatabaseMock) UnarchiveHabit(id string) error {
-	mock.UnarchiveHabitCalled++
-	return mock.UnarchiveHabitImplementation(id)
-}
-
 var _ habit_share.HabitsDatabase = (*HabitsDatabaseMock)(nil)
 
 // TODO this test needs to be better
 func TestCsvParser(t *testing.T) {
 	t.Run("correctly read simple csv", func(t *testing.T) {
-		csvReader := csv.NewReader(strings.NewReader(`Ankle Rehab,2021-07-20,success,
+		csvReader := csv.NewReader(strings.NewReader(`Habit,Date,Status,Comment
+Ankle Rehab,2021-07-20,success,
 Ankle Rehab,2021-07-21,success,
 Reading,2021-07-22,success,
 Reading,2021-07-23,skip,
@@ -173,10 +147,10 @@ Reading,2021-07-25,skip,
 Ankle Rehab,2021-07-26,success,
 Reading,2021-07-26,skip,`))
 		db := &HabitsDatabaseMock{}
-		db.CreateHabitImplementation = func(name string, owner string, frequency int) (string, error) {
-			return name, nil
+		db.CreateHabitImplementation = func(habit habit_share.Habit) (string, error) {
+			return habit.Name, nil
 		}
-		db.CreateActivityImplementation = func(habitId string, logged time.Time, status string) (string, error) {
+		db.CreateActivityImplementation = func(habitId string, logged habit_share.Time, status string) (string, error) {
 			return "useless id", nil
 		}
 
@@ -189,7 +163,7 @@ Reading,2021-07-26,skip,`))
 			t.Error("Expected 2 habits to be created got: ", db.CreateHabitCalled)
 		}
 		if db.CreateActivityCalled != 9 {
-			t.Error("Expected 5 activities to be created got: ", db.CreateActivityCalled)
+			t.Error("Expected 9 activities to be created got: ", db.CreateActivityCalled)
 		}
 	})
 }
