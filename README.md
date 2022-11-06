@@ -22,17 +22,21 @@ When making `curl` requests add the following cookie
 curl --cookie __Secure-SESSIONID='uuid mentioned before' localhost:8080...
 ```
 
-1. Run `./scripts/start.sh` to run the server. We currently don't have any dependencies.
+1. Run `./scripts/start.sh` to run the server. We currently don't have any dependent services.
 
 ## Building container
 The `Dockerfile` doesn't automatically build the `frontend/` so the
 `./scripts/build-container.sh` does that prior building the container.
 
 ## TODO
-* [ ] Remove need for Google Cloud OAuth
+* [ ] Remove need for Google Cloud OAuth. Need to rethink the API.
 * [X] Sharing habits
 * [ ] Document API
 * [ ] All users are considered friends. Provide a friending system.
 * [X] Import csv from HabitShare app
-* [ ] Create todo section
+* [X] Create todo section
 
+* [ ] Load testing to ensure data races don't pop up. Since only one instance of the app runs at a time the data races aren't as bad.
+It's easier to solve these problems with an online database solution compared to a single file.
+* [ ] Fix fragility of system on malformed data. Single file is parsed so any failures there brings the whole thing down.
+production habits.json is 32K, for now we could do the swap method (maybe?)
