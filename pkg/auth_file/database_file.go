@@ -71,6 +71,35 @@ type AuthDatabaseFile struct {
 
 var _ auth.AuthDatabase = (*AuthDatabaseFile)(nil)
 
+// UserExists implements auth.AuthDatabase
+func (a *AuthDatabaseFile) UserExists(ctx context.Context, userId string) (bool, error) {
+	accountsFile, err := os.Open(a.AccountsFilepath)
+	if err != nil {
+		return false, err
+	}
+	defer accountsFile.Close()
+
+	accountsDecoder := json.NewDecoder(accountsFile)
+
+	accounts := []struct {
+		Id    string
+		Email string
+	}{}
+
+	err = accountsDecoder.Decode(&accounts)
+	if err != nil {
+		return false, err
+	}
+
+	for _, account := range accounts {
+		if account.Id == userId {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // TODO This doesn't scale, we're iterating over a list to find the email
 // We're also parsing the whole file
 func (a *AuthDatabaseFile) GetUserIdFromEmail(ctx context.Context, email string) (string, error) {

@@ -10,11 +10,12 @@ import (
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
 )
 
-func GetSharedHabits(w http.ResponseWriter, r *http.Request) {
-	app, ok := injectApp(w, r)
-	if !ok {
+func (s Server) GetSharedHabits(w http.ResponseWriter, r *http.Request) {
+	requestDependencies, err := s.BuildRequestDependenciesOrReject(w, r)
+	if err != nil {
 		return
 	}
+	app := requestDependencies.HabitApp
 
 	limitString := r.URL.Query().Get("limit")
 	if limitString == "" {

@@ -14,11 +14,12 @@ import (
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_import"
 )
 
-func GetMyhabits(w http.ResponseWriter, r *http.Request) {
-	app, ok := injectApp(w, r)
-	if !ok {
+func (s Server) GetMyHabits(w http.ResponseWriter, r *http.Request) {
+	requestDependencies, err := s.BuildRequestDependenciesOrReject(w, r)
+	if err != nil {
 		return
 	}
+	app := requestDependencies.HabitApp
 
 	limitString := r.URL.Query().Get("limit")
 	if limitString == "" {
@@ -48,18 +49,18 @@ func GetMyhabits(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, string(res))
 }
 
-func PostMyHabits(w http.ResponseWriter, r *http.Request) {
-	// TODO could probably make middleware for this
+func (s Server) PostMyHabits(w http.ResponseWriter, r *http.Request) {
+	var err error
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		fmt.Fprintf(w, "Content Type is not application/json")
 		return
 	}
-
-	app, ok := injectApp(w, r)
-	if !ok {
+	requestDependencies, err := s.BuildRequestDependenciesOrReject(w, r)
+	if err != nil {
 		return
 	}
+	app := requestDependencies.HabitApp
 
 	newHabit := struct {
 		Name        string
@@ -68,7 +69,7 @@ func PostMyHabits(w http.ResponseWriter, r *http.Request) {
 	}{}
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	err := decoder.Decode(&newHabit)
+	err = decoder.Decode(&newHabit)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		var unmarshalErr *json.UnmarshalTypeError
@@ -113,7 +114,7 @@ func PostMyHabits(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, habitId)
 }
 
-func PostMyHabitsImport(w http.ResponseWriter, r *http.Request) {
+func (s Server) PostMyHabitsImport(w http.ResponseWriter, r *http.Request) {
 	// TODO prevent someone from uploading too much
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "text/csv") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
@@ -121,13 +122,9 @@ func PostMyHabitsImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, ok := injectDb(w, r);
-	if !ok {
-		return
-	}
-
-	authService, ok := injectAuth(w, r);
-	if !ok {
+	db := s.HabitsDatabase
+	authService, err := s.BuildAuthServiceOrReject(w, r)
+	if err != nil {
 		return
 	}
 

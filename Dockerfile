@@ -5,7 +5,6 @@ WORKDIR /usr/src/app
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
-# TODO Only copy frontend/build instead
 COPY ./scripts ./scripts
 COPY ./cmd ./cmd
 COPY ./pkg ./pkg

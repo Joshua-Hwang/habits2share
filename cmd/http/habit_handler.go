@@ -15,15 +15,13 @@ import (
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 )
 
-func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
+func (reqDeps RequestDependencies) BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 	mux := MuxWrapper{ServeMux: http.NewServeMux()}
 	mux.RegisterHandlers("/", map[string]http.HandlerFunc{
 		"GET": func(w http.ResponseWriter, r *http.Request) {
 			// optimised endpoint
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
+			app := reqDeps.HabitApp
+
 			// taken from the activities endpoint
 			activities, _, err := app.GetActivities(habit.Id,
 				habit_share.Time{Time: time.Now().AddDate(0, 0, -7)},
@@ -62,16 +60,14 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			fmt.Fprintf(w, "%s", string(bytes))
 		},
 		"POST": func(w http.ResponseWriter, r *http.Request) {
+			var err error
 			if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 				w.WriteHeader(http.StatusUnsupportedMediaType)
 				fmt.Fprintf(w, "Content Type is not application/json")
 				return
 			}
 
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
+			app := reqDeps.HabitApp
 
 			updatePayload := struct {
 				Name        string
@@ -80,7 +76,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			}{}
 			decoder := json.NewDecoder(r.Body)
 			decoder.DisallowUnknownFields()
-			err := decoder.Decode(&updatePayload)
+			err = decoder.Decode(&updatePayload)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				var unmarshalErr *json.UnmarshalTypeError
@@ -149,10 +145,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			w.WriteHeader(http.StatusCreated)
 		},
 		"DELETE": func(w http.ResponseWriter, r *http.Request) {
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
+			app := reqDeps.HabitApp
 
 			permanent := r.URL.Query().Get("permanent")
 			if permanent == "true" {
@@ -179,10 +172,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			fmt.Fprintf(w, "%s", habit.Name)
 		},
 		"POST": func(w http.ResponseWriter, r *http.Request) {
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
+			app := reqDeps.HabitApp
 
 			if !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
 				w.WriteHeader(http.StatusUnsupportedMediaType)
@@ -214,10 +204,8 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 	})
 	mux.RegisterHandlers("/score", map[string]http.HandlerFunc{
 		"GET": func(w http.ResponseWriter, r *http.Request) {
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
+			app := reqDeps.HabitApp
+
 			score, err := app.GetScore(habit.Id)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -232,10 +220,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 	// GET to /habit/:habitId/activities?limit=...&order=... works on the pagination of activities
 	mux.RegisterHandlers("/activities", map[string]http.HandlerFunc{
 		"GET": func(w http.ResponseWriter, r *http.Request) {
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
+			app := reqDeps.HabitApp
 
 			beforeString := r.URL.Query().Get("before")
 			if beforeString == "" {
@@ -307,16 +292,14 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			fmt.Fprintf(w, "%s", string(bytes))
 		},
 		"POST": func(w http.ResponseWriter, r *http.Request) {
+			var err error
 			if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 				w.WriteHeader(http.StatusUnsupportedMediaType)
 				fmt.Fprintf(w, "Content Type is not application/json")
 				return
 			}
 
-			app, ok := injectApp(w, r)
-			if !ok {
-				return
-			}
+			app := reqDeps.HabitApp
 
 			newActivity := struct {
 				Logged string
@@ -324,7 +307,7 @@ func BuildHabitHandler(habit *habit_share.Habit) http.Handler {
 			}{}
 			decoder := json.NewDecoder(r.Body)
 			decoder.DisallowUnknownFields()
-			err := decoder.Decode(&newActivity)
+			err = decoder.Decode(&newActivity)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				var unmarshalErr *json.UnmarshalTypeError

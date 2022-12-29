@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,83 +18,50 @@ import (
 )
 
 func main() {
-	webClientId := os.Getenv("GOOGLE_WEB_CLIENT_ID")
-	mobileClientId := os.Getenv("GOOGLE_MOBILE_CLIENT_ID")
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	sessionFilePath := os.Getenv("SESSIONS_FILE")
-	if sessionFilePath == "" {
-		sessionFilePath = "sessions.csv"
-	}
-	accountsFilePath := os.Getenv("ACCOUNTS_FILE")
-	if accountsFilePath == "" {
-		accountsFilePath = "accounts.json"
-	}
-	habitsFilePath := os.Getenv("HABITS_FILE")
-	if habitsFilePath == "" {
-		habitsFilePath = "habits.json"
-	}
-	todoFilePath := os.Getenv("TODO_FILE")
-	if todoFilePath == "" {
-		todoFilePath = "todo.json"
-	}
+	config := GetGlobalConfig()
 
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 
+	// check necessary files exist before continuing.
+	// It's either here or we discover during initial testing in production
+	// if necessary files don't exist crash
+	if _, err := os.Stat(config.accountsFilePath); err != nil {
+		log.Fatalf("accountsFilePath points to \"%s\" which does not exist", config.accountsFilePath)
+	}
+
 	authDatabase := &auth_file.AuthDatabaseFile{
-		SessionsFilepath: sessionFilePath,
+		SessionsFilepath: config.sessionFilePath,
 		SessionsFileLock: &sync.RWMutex{},
-		AccountsFilepath: accountsFilePath,
+		AccountsFilepath: config.accountsFilePath,
 	}
 	tokenParser := &auth.TokenParserGoogle{
-		WebClientId:    webClientId,
-		MobileClientId: mobileClientId,
+		WebClientId:    config.webClientId,
+		MobileClientId: config.mobileClientId,
 	}
 
-	habitsDatabase, err := habit_share_file.HabitShareFromFile(habitsFilePath)
+	habitsDatabase, err := habit_share_file.HabitShareFromFile(config.habitsFilePath)
 	if err != nil {
 		panic(err)
 	}
 
-	todoDatabase, err := todo_file.TodoFromFile(todoFilePath)
+	todoDatabase, err := todo_file.TodoFromFile(config.todoFilePath)
 	if err != nil {
 		panic(err)
 	}
 
-	// TODO move this to dependency helper
-	buildDependencies := func(next http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-
-			ctx = context.WithValue(ctx, dbKey, habitsDatabase)
-			ctx = context.WithValue(ctx, todoDbKey, todoDatabase)
-			ctx = context.WithValue(ctx, authDbKey, authDatabase)
-			ctx = context.WithValue(ctx, tokenParserKey, tokenParser)
-
-			authService := &auth.AuthService{
-				GetUserId: BuildUserIdGetter(r),
-			}
-			ctx = context.WithValue(ctx, authServiceKey, authService)
-
-			app := &habit_share.App{Db: habitsDatabase, Auth: authService}
-			ctx = context.WithValue(ctx, appKey, app)
-
-			todoApp := &todo.App{Db: todoDatabase, Auth: authService}
-			ctx = context.WithValue(ctx, todoAppKey, todoApp)
-
-			next(w, r.WithContext(ctx))
-		}
+	// Hopefully it's sufficiently clear that this isn't all the dependencies
+	server := Server{
+		GlobalDependencies{
+			AuthDatabase:   authDatabase,
+			TokenParser:    tokenParser,
+			HabitsDatabase: habitsDatabase,
+			TodoDatabase:   todoDatabase,
+		},
 	}
 
-	// session parser requires dependencies to be built first
-	sessionParser := BuildSessionParser("/login")
+	mux := MuxWrapper{ServeMux: http.NewServeMux()}
 
-	mux := MuxWrapper{ServeMux: http.NewServeMux(), Middleware: buildDependencies}
-
-	mux.RegisterHandlers("/healthcheck", map[string]http.HandlerFunc{
+	mux.RegisterHandlers("/healthcheck", MethodHandlers{
 		// TODO make this more like a deepcheck
 		"HEAD": func(w http.ResponseWriter, r *http.Request) {
 			// Uses the HEAD command for uptime service I use but can be changed easily
@@ -103,37 +69,26 @@ func main() {
 		},
 	})
 
-	// These assets need to skip the credentials check because Firefox doesn't
-	// send cookies when requesting manifest.json
-	mux.HandleFunc("/web/manifest.json", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./frontend/build/manifest.json")
-	})
-	mux.HandleFunc("/web/asset-manifest.json", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./frontend/build/asset-manifest.json")
-	})
-
 	// TODO because session parsing happens here. All static files are checked for login credentials causing unnecessary reads
-	mux.Handle("/web/", sessionParser(BlockAnonymous(
-		BuildGetLogin(webClientId, "/web/"),
-		http.StripPrefix("/web/", http.FileServer(http.Dir("./frontend/build"))).ServeHTTP,
-	)))
+	// No authentication is done on the Single Page App. It should be their responsibility to get the user logged in.
+	mux.Handle("/web/", http.StripPrefix("/web/", http.FileServer(http.Dir("./frontend/build"))))
 
-	mux.RegisterHandlers("/login", map[string]http.HandlerFunc{
-		"GET":  BuildGetLogin(webClientId, "/web"),
-		"POST": PostLogin,
+	mux.RegisterHandlers("/login", MethodHandlers{
+		"GET":  server.GetLogin,
+		"POST": server.PostLogin,
 	})
 
-	mux.RegisterHandlers("/my/habits", map[string]http.HandlerFunc{
-		"GET":  sessionParser(BlockAnonymous(nil, GetMyhabits)),
-		"POST": sessionParser(BlockAnonymous(nil, PostMyHabits)),
+	mux.RegisterHandlers("/my/habits", MethodHandlers{
+		"GET":  server.GetMyHabits,
+		"POST": server.PostMyHabits,
 	})
-	mux.RegisterHandlers("/my/habits/upload", map[string]http.HandlerFunc{
-		"POST": sessionParser(BlockAnonymous(nil, PostMyHabitsImport)),
+	mux.RegisterHandlers("/my/habits/upload", MethodHandlers{
+		"POST": server.PostMyHabitsImport,
 	})
 
 	// NOTE if performance is an issue consider creating an /all/habits
-	mux.RegisterHandlers("/shared/habits", map[string]http.HandlerFunc{
-		"GET": sessionParser(BlockAnonymous(nil, GetSharedHabits)),
+	mux.RegisterHandlers("/shared/habits", MethodHandlers{
+		"GET": server.GetSharedHabits,
 	})
 
 	// NOTE if performance is an issue return activities in same batch as habits
@@ -142,18 +97,20 @@ func main() {
 	// the clients are able to use in a single request.
 	{
 		pathPrefix := "/habit/"
-		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix,
-			sessionParser(BlockAnonymous(nil, func(w http.ResponseWriter, r *http.Request) {
+		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix, http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				var err error
 				// get habitId
 				habitId, remainingUrl, _ := strings.Cut(r.URL.EscapedPath(), "/")
 				// the slash is removed during cut
 				remainingUrl = fmt.Sprintf("/%s?%s", remainingUrl, r.URL.Query().Encode())
 				r.URL, _ = url.Parse(remainingUrl)
 
-				app, ok := injectApp(w, r)
-				if !ok {
+				reqDeps, err := server.BuildRequestDependenciesOrReject(w, r)
+				if err != nil {
 					return
 				}
+				app := reqDeps.HabitApp
 
 				habit, err := app.GetHabit(habitId)
 				if err != nil {
@@ -166,37 +123,39 @@ func main() {
 					log.Printf("Failed to retrieve habit %v", err)
 				}
 
-				habitHandler := BuildHabitHandler(&habit)
+				habitHandler := reqDeps.BuildHabitHandler(&habit)
 				habitHandler.ServeHTTP(w, r)
-			})),
+			}),
 		))
 	}
 
 	// NOTE this doesn't work if other endpoints exist on this prefix
-	mux.RegisterHandlers("/user/", map[string]http.HandlerFunc{
-		"POST":   sessionParser(BlockAnonymous(nil, PostUserHabit)),
-		"DELETE": sessionParser(BlockAnonymous(nil, DeleteUserHabit)),
+	mux.RegisterHandlers("/user/", MethodHandlers{
+		"POST":   server.PostUserHabit,
+		"DELETE": server.DeleteUserHabit,
 	})
 
-	mux.RegisterHandlers("/my/todos", map[string]http.HandlerFunc{
-		"GET":  sessionParser(BlockAnonymous(nil, GetMyTodos)),
-		"POST": sessionParser(BlockAnonymous(nil, PostMyTodos)),
+	mux.RegisterHandlers("/my/todos", MethodHandlers{
+		"GET":  server.GetMyTodos,
+		"POST": server.PostMyTodos,
 	})
 
 	{
 		pathPrefix := "/todo/"
-		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix,
-			sessionParser(BlockAnonymous(nil, func(w http.ResponseWriter, r *http.Request) {
-				// get habitId
+		mux.Handle(pathPrefix, http.StripPrefix(pathPrefix, http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				var err error
+				// get todoId
 				todoId, remainingUrl, _ := strings.Cut(r.URL.EscapedPath(), "/")
 				// the slash is removed during cut
 				remainingUrl = fmt.Sprintf("/%s?%s", remainingUrl, r.URL.Query().Encode())
 				r.URL, _ = url.Parse(remainingUrl)
 
-				app, ok := injectTodoApp(w, r)
-				if !ok {
+				reqDeps, err := server.BuildRequestDependenciesOrReject(w, r)
+				if err != nil {
 					return
 				}
+				app := reqDeps.TodoApp
 
 				todoItem, err := app.GetTodo(todoId)
 				if err != nil {
@@ -209,12 +168,13 @@ func main() {
 					log.Printf("Failed to retrieve habit %v", err)
 				}
 
-				habitHandler := BuildTodoHandler(&todoItem)
+				habitHandler := reqDeps.BuildTodoHandler(&todoItem)
 				habitHandler.ServeHTTP(w, r)
-			})),
+			}),
 		))
 	}
 
-	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), mux))
+	log.Printf("Listening on port %s", config.port)
+	log.Printf("Process ID %d", os.Getpid())
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", config.port), mux))
 }

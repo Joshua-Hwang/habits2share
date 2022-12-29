@@ -12,7 +12,17 @@ import (
 	"github.com/Joshua-Hwang/habits2share/pkg/todo"
 )
 
-func BuildTodoHandler(todoItem *todo.Todo) http.Handler {
+// We build this way because the mux can't accept the todoItem beyond the two parameters
+// Ideally the mux should take any function and perform redirection based on path.
+// A more advanced version of a map.
+// Is it a failure of the language to prevent me from doing the simpler thing?
+// Under the hood it's just pointers and it could be made that the mux doesn't run the operation.
+// mux accepts anonymous functions which makes closures. Can't hot swap the todoItem
+// Maybe it's a failure of the library that I can separate the routing logic from the mux further.
+// What if we raise all this to the main mux? won't work because todoId is present in the URL
+// I think the correct approach is to abandon the mux provided by the http package and run our own
+// Ideas are welcome
+func (reqDeps RequestDependencies) BuildTodoHandler(todoItem *todo.Todo) http.Handler {
 	mux := MuxWrapper{ServeMux: http.NewServeMux()}
 	mux.RegisterHandlers("/", map[string]http.HandlerFunc{
 		"POST": func(w http.ResponseWriter, r *http.Request) {
@@ -22,10 +32,7 @@ func BuildTodoHandler(todoItem *todo.Todo) http.Handler {
 				return
 			}
 
-			app, ok := injectTodoApp(w, r)
-			if !ok {
-				return
-			}
+			app := reqDeps.TodoApp
 
 			updatePayload := struct {
 				Name        string

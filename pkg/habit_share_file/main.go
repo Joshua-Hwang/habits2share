@@ -174,7 +174,9 @@ func (a *HabitShareFile) ShareHabit(habitId string, friend string) error {
 	// don't forget to write back to the file if it exists
 	user, ok := a.Users[friend]
 	if !ok {
-		return habit_share.UserNotFoundError
+		// Create user. Validation if user should exist or not should be based on account manager
+		user = User{MyHabits: make(map[string]struct{}, 0), SharedHabits: make(map[string]struct{}, 0)}
+		a.Users[friend] = user
 	}
 
 	habit, ok := a.Habits[habitId]

@@ -1,9 +1,4 @@
+/secrets/
 .env
-accounts.json
-habits.json
-sessions.csv
-todo.json
 
 build/
-scripts/deploy.sh
-fly.toml

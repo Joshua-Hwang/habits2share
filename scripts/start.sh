@@ -1,6 +1,8 @@
 #!/bin/sh
 
-# Load oauthClientIds in .env
+# Load GOFLAGS
 export $(cat .env | xargs)
 
-go run ./cmd/http
+# go run is out of the question because debug info
+mkdir -p build
+go build -o ./build/server ./cmd/http && ./build/server

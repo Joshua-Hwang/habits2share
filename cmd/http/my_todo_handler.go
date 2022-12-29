@@ -13,11 +13,13 @@ import (
 	"github.com/Joshua-Hwang/habits2share/pkg/todo"
 )
 
-func GetMyTodos(w http.ResponseWriter, r *http.Request) {
-	app, ok := injectTodoApp(w, r)
-	if !ok {
+func (s Server) GetMyTodos(w http.ResponseWriter, r *http.Request) {
+	var err error
+	reqDeps, err := s.BuildRequestDependenciesOrReject(w, r)
+	if err != nil {
 		return
 	}
+	app := reqDeps.TodoApp
 
 	limitString := r.URL.Query().Get("limit")
 	if limitString == "" {
@@ -47,17 +49,19 @@ func GetMyTodos(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, string(res))
 }
 
-func PostMyTodos(w http.ResponseWriter, r *http.Request) {
+func (s Server) PostMyTodos(w http.ResponseWriter, r *http.Request) {
+	var err error
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		fmt.Fprintf(w, "Content Type is not application/json")
 		return
 	}
 
-	app, ok := injectTodoApp(w, r)
-	if !ok {
+	reqDeps, err := s.BuildRequestDependenciesOrReject(w, r)
+	if err != nil {
 		return
 	}
+	app := reqDeps.TodoApp
 
 	newTodo := struct {
 		Name        string
@@ -66,7 +70,7 @@ func PostMyTodos(w http.ResponseWriter, r *http.Request) {
 	}{}
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	err := decoder.Decode(&newTodo)
+	err = decoder.Decode(&newTodo)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		var unmarshalErr *json.UnmarshalTypeError

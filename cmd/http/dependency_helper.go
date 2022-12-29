@@ -1,65 +1,69 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 
+	"github.com/Joshua-Hwang/habits2share/pkg/auth"
+	"github.com/Joshua-Hwang/habits2share/pkg/auth_file"
 	"github.com/Joshua-Hwang/habits2share/pkg/habit_share"
+	"github.com/Joshua-Hwang/habits2share/pkg/habit_share_file"
 	"github.com/Joshua-Hwang/habits2share/pkg/todo"
 )
 
 type key string
+type UserIdType string
 
-const appKey = key("APP")
-const todoAppKey = key("TODO_APP")
-const dbKey = key("DB")
-const todoDbKey = key("TODO_DB")
-const authDbKey = key("AUTH_DB")
-const authServiceKey = key("AUTH_SERVICE")
-const tokenParserKey = key("TOKEN_PARSER")
-
-// helper function
-func injectApp(w http.ResponseWriter, r *http.Request) (*habit_share.App, bool) {
-	app, ok := r.Context().Value(appKey).(*habit_share.App)
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Dependency injection failed")
-		log.Printf("Dependency injection failed for app")
-		return nil, false
-	}
-	return app, true
+// Contains app scoped dependencies
+type Server struct {
+	// Nothing else is in this struct. Dependencies is here purely for semantics
+	GlobalDependencies
 }
 
-func injectDb(w http.ResponseWriter, r *http.Request) (habit_share.HabitsDatabase, bool) {
-	db, ok := r.Context().Value(dbKey).(habit_share.HabitsDatabase)
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Dependency injection failed")
-		log.Printf("Dependency injection failed for db")
-		return nil, false
-	}
-	return db, true
+type GlobalDependencies struct {
+	// For both performance and mutexes these are here
+	AuthDatabase   *auth_file.AuthDatabaseFile
+	TokenParser    *auth.TokenParserGoogle
+	HabitsDatabase *habit_share_file.HabitShareFile
+	TodoDatabase   todo.TodoDatabase
 }
 
-func injectAuth(w http.ResponseWriter, r *http.Request) (habit_share.AuthInterface, bool) {
-	auth, ok := r.Context().Value(authServiceKey).(habit_share.AuthInterface)
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Dependency injection failed")
-		log.Printf("Dependency injection failed for auth")
-		return nil, false
-	}
-	return auth, true
+// TODO probably worth splitting, not very performant
+// Maybe results in ball of mud?
+type RequestDependencies struct {
+	GlobalDependencies
+	AuthService *auth.AuthService
+	HabitApp    *habit_share.App
+	TodoApp     *todo.App
 }
 
-func injectTodoApp(w http.ResponseWriter, r *http.Request) (*todo.App, bool) {
-	app, ok := r.Context().Value(todoAppKey).(*todo.App)
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Dependency injection failed")
-		log.Printf("Dependency injection failed for todo app")
-		return nil, false
+func (s Server) BuildRequestDependenciesOrReject(w http.ResponseWriter, r *http.Request) (*RequestDependencies, error) {
+	authService, err := s.BuildAuthServiceOrReject(w, r)
+	if err != nil {
+		return nil, err
 	}
-	return app, true
+	habitApp := s.BuildHabitApp(authService)
+	todoApp := s.BuildTodoApp(authService)
+
+	requestDependencies := RequestDependencies{
+		GlobalDependencies: s.GlobalDependencies,
+		AuthService:        authService,
+		HabitApp:           habitApp,
+		TodoApp:            todoApp,
+	}
+
+	return &requestDependencies, nil
+}
+
+// TODO If InitHabits needs more services we get caught at compile time
+// The intention is to eventually use wire
+func (s Server) BuildHabitApp(
+	authService habit_share.AuthInterface,
+) *habit_share.App {
+	return &habit_share.App{Db: s.HabitsDatabase, Auth: authService}
+}
+
+func (s Server) BuildTodoApp(
+	authService todo.AuthInterface,
+) *todo.App {
+	return &todo.App{Db: s.TodoDatabase, Auth: authService}
 }
