@@ -10,7 +10,7 @@ for ((i=0;i<100;i++)); do
   name=$(uuidgen)
   description="$name description has $(uuidgen)"
   frequency=$(( RANDOM % 7 + 1 ))
-  curl -b $tmp_file1 --json "{\"Name\":\"$name\", \"Description\": \"$description\", \"Frequency\": 3}" localhost:8080/my/habits
+  curl -b $tmp_file1 --json "{\"Name\":\"$name\", \"Description\": \"$description\", \"Frequency\": $frequency}" localhost:8080/my/habits
   echo
 done
 
@@ -24,6 +24,6 @@ for ((i=0;i<100;i++)); do
   name=$(uuidgen)
   description="$name description has $(uuidgen)"
   frequency=$(( RANDOM % 7 + 1 ))
-  curl -b $tmp_file2 --json "{\"Name\":\"$name\", \"Description\": \"$description\", \"Frequency\": 3}" localhost:8080/my/habits
+  curl -b $tmp_file2 --json "{\"Name\":\"$name\", \"Description\": \"$description\", \"Frequency\": $frequency}" localhost:8080/my/habits
   echo
 done

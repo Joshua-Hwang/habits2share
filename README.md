@@ -325,6 +325,8 @@ When making `curl` requests add the following cookie
 curl --cookie __Secure-SESSIONID='uuid mentioned before' localhost:8080...
 ```
 
+Debugging with [Delve](https://github.com/go-delve/delve)
+
 1. Run `./scripts/start.sh` to run the server. We currently don't have any dependent services.
 
 ## Generate test data
