@@ -9,4 +9,7 @@ require (
 	github.com/tkrajina/typescriptify-golang-structs v0.1.7
 )
 
-require github.com/tkrajina/go-reflector v0.5.5 // indirect
+require (
+	github.com/golang/mock v1.6.0 // indirect
+	github.com/tkrajina/go-reflector v0.5.5 // indirect
+)

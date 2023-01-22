@@ -1,27 +1,19 @@
 package todo_file
 
 import (
-	"os"
 	"sync"
 	"testing"
 )
 
 var inputJson = "input.json"
-var outputJson = "output.json"
 
 func TestIo(t *testing.T) {
-	if _, err := os.Stat(outputJson); err == nil {
-		err = os.Remove(outputJson)
-		if err != nil {
-			t.Error("during setup failed to delete output json got: ", err)
-		}
-	}
-
 	t.Run("should write to a file", func(t *testing.T) {
+		tempDir := t.TempDir()
 		testData := generateTestData()
 		todoFile := TodoFile {
 			UsersTodos: testData,
-			filename: outputJson,
+			filename: tempDir + "/output.json",
 			fileLock: &sync.Mutex{},
 		}
 
@@ -56,10 +48,11 @@ func TestIo(t *testing.T) {
 	})
 
 	t.Run("should read from file that is written", func(t *testing.T) {
+		tempDir := t.TempDir()
 		testData := generateTestData()
 		todoFile := TodoFile {
 			UsersTodos: testData,
-			filename: outputJson,
+			filename: tempDir + "/output.json",
 			fileLock: &sync.Mutex{},
 		}
 
@@ -69,7 +62,7 @@ func TestIo(t *testing.T) {
 		}
 
 		todoFile2 := TodoFile {
-			filename: outputJson,
+			filename: tempDir + "/output.json",
 			fileLock: &sync.Mutex{},
 		}
 

@@ -3,7 +3,7 @@ As part of revisiting old code. Big changes will be made here.
 [X] Improve and simplify the `.gitignore` to inspire more confidence in what is being shared in this public repo
 [X] Actually fix the gross authentication logic
 [X] Develop system to copy production data into local
-[ ] Generate scripts that generate particular types of data
+[X] Generate scripts that generate particular types of data
 [ ] Use these scripts inside integration tests
 [X] script to run all tests or document how to run tests. Things to inspire confidence when running this app.
 [ ] curl commands are annoying and finicky. Scripts or otherwise for command in just the CLI
@@ -276,7 +276,7 @@ If we do it via file
 * it's much easier to script up.
 * But the test generation only works for the database as a file.
 * Changes to the file format require constant changes in test generation.
-* Interesting tests can be made like migration or data recovery
+* Interesting tests can be made like migration or data recovery and created_at
   * Arguably it shouldn't cause problems. habit_share_file unit tests should handle interesting cases.
 
 If we do it via API calls
@@ -340,6 +340,11 @@ The `Dockerfile` doesn't automatically build the `frontend/` so the
 
 ## Testing
 Run all unit tests with `go test ./...`
+
+## Tips and tricks
+`mockgen` is what I've used in the past to generate mocks. All interfaces are free game to mock.
+
+[ ] Add steps here on how to mock
 
 ## TODO
 * [ ] Remove need for Google Cloud OAuth. Need to rethink the API.
