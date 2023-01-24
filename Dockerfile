@@ -12,6 +12,6 @@ COPY ./frontend/build ./frontend/build
 
 RUN ./scripts/build.sh
 
-COPY accounts.json ./
+COPY ./secrets/accounts.json ./
 
 CMD ["./build/server"]
