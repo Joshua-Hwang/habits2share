@@ -1,29 +1,26 @@
 As part of revisiting old code. Big changes will be made here.
 
-[X] Improve and simplify the `.gitignore` to inspire more confidence in what is being shared in this public repo
-[X] Actually fix the gross authentication logic
-[X] Develop system to copy production data into local
-[X] Generate scripts that generate particular types of data
-[X] Use these scripts inside integration tests
-[X] script to run all tests or document how to run tests. Things to inspire confidence when running this app.
-[ ] curl commands are annoying and finicky. Scripts or otherwise for command in just the CLI
+[O] Improve and simplify the `.gitignore` to inspire more confidence in what is being shared in this public repo
+[O] Actually fix the gross authentication logic
+[O] Develop system to copy production data into local
+[O] Generate scripts that generate particular types of data
+[O] Use these scripts inside integration tests
+[O] script to run all tests or document how to run tests. Things to inspire confidence when running this app.
+[/] curl commands are annoying and finicky. Scripts or otherwise for command in just the CLI
 [ ] Integration tests could run on random port and data generators could take PORT
 [ ] Load testing framework would be a huge confidence boost
 [ ] Code coverage enforcement on deployment
 
-[X] Others who attempt to run the script will find the same problems with `.gitignored/` and `.env` because these are ignored from the repo.
+[O] Others who attempt to run the script will find the same problems with `.gitignored/` and `.env` because these are ignored from the repo.
 Create a script for these.
 [ ] Connect locally running frontend to prod and connect locally running backend to frontend (service overrides?)
 It's probably fine right now given how lightweight the app is (and if the data generation scripts are good enough).
 Are service overrides an anti-pattern? Things become big ball of mud if backend services talk to each other and don't know about service override
 [ ] We should incorporate a logout button as well.
 [ ] absolute path packages freak me out. What happens if we move the repo or someone forks it?
-[ ] Changes to init.sh need to be encourage and thought about. How can developers remember to consider the init.sh?
+[X] Changes to init.sh need to be encourage and thought about. How can developers remember to consider the init.sh?
 [ ] Excessive logging by default
 [ ] Ensure no sedentary code
-
-`curl` can use a "cookie-jar" which is a file format for storing cookies. Could
-make things easier. `-b` to use `-c` to store. Could be separate files.
 
 # Thinking through problems
 

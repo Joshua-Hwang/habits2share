@@ -77,6 +77,9 @@ func main() {
 		"GET":  server.GetLogin,
 		"POST": server.PostLogin,
 	})
+	mux.RegisterHandlers("/logout", MethodHandlers{
+		"POST": server.PostLogout,
+	})
 
 	mux.RegisterHandlers("/my/habits", MethodHandlers{
 		"GET":  server.GetMyHabits,

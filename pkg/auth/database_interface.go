@@ -13,6 +13,7 @@ type AuthDatabase interface {
 	// returns the userId
 	GetUserIdFromEmail(ctx context.Context, email string) (string, error)
 	AddSession(ctx context.Context, sessionId string, userId string) (error)
+	ExpireSession(ctx context.Context, sessionId string) (error)
 	GetUserIdFromSession(ctx context.Context, sessionId string, since time.Time) (string, error)
 	UserExists(ctx context.Context, userId string) (bool, error)
 }

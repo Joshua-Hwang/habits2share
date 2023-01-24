@@ -20,6 +20,36 @@ func buildSessionKey(sessionId string) string {
 	return fmt.Sprintf("session/%s", sessionId)
 }
 
+func (s Server) PostLogout(w http.ResponseWriter, r *http.Request) {
+	db := s.AuthDatabase
+	sessionCookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		if err != http.ErrNoCookie {
+			log.Printf("Unexpected error with cookie: %s", err)
+			return
+		}
+	} else {
+		err = db.ExpireSession(r.Context(), sessionCookie.Value)
+		if err != nil {
+			log.Printf("Failed to expire session from database: %s", err)
+			w.WriteHeader(http.StatusFailedDependency)
+			return
+		}
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		HttpOnly: true,
+		MaxAge:   0,
+	})
+
+	redirectUrl := r.URL.Query().Get("redirect_url")
+	http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
+}
+
 func (s Server) BuildAuthService(r *http.Request) (*auth.AuthService, error) {
 	db := s.AuthDatabase
 	sessionCookie, err := r.Cookie(sessionCookieName)

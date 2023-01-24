@@ -71,6 +71,38 @@ type AuthDatabaseFile struct {
 
 var _ auth.AuthDatabase = (*AuthDatabaseFile)(nil)
 
+// ExpireSession implements auth.AuthDatabase
+func (a *AuthDatabaseFile) ExpireSession(ctx context.Context, sessionId string) error {
+	a.SessionsFileLock.Lock()
+	defer a.SessionsFileLock.Unlock()
+
+	sessionsFile, err := os.OpenFile(a.SessionsFilepath, os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	defer sessionsFile.Close()
+
+	sessionFileReader := csv.NewReader(sessionsFile)
+	records, err := sessionFileReader.ReadAll()
+	if err != nil {
+		return err
+	}
+
+	for i, record := range(records) {
+		if record[0] == sessionId {
+			record[2] = time.Time{}.Format(time.RFC3339)
+			records[i] = record
+		}
+	}
+
+	sessionsFileWriter := csv.NewWriter(sessionsFile)
+	defer sessionsFileWriter.Flush()
+
+	sessionsFileWriter.WriteAll(records)
+
+	return nil
+}
+
 // UserExists implements auth.AuthDatabase
 func (a *AuthDatabaseFile) UserExists(ctx context.Context, userId string) (bool, error) {
 	accountsFile, err := os.Open(a.AccountsFilepath)
