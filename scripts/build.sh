@@ -1,4 +1,4 @@
 #!/bin/sh
 
-mkdir -p build
-go build -o ./build/server ./cmd/http
+./scripts/build-frontend.sh
+./scripts/build-backend.sh

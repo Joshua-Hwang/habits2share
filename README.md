@@ -4,9 +4,10 @@ As part of revisiting old code. Big changes will be made here.
 [X] Actually fix the gross authentication logic
 [X] Develop system to copy production data into local
 [X] Generate scripts that generate particular types of data
-[ ] Use these scripts inside integration tests
+[X] Use these scripts inside integration tests
 [X] script to run all tests or document how to run tests. Things to inspire confidence when running this app.
 [ ] curl commands are annoying and finicky. Scripts or otherwise for command in just the CLI
+[ ] Integration tests could run on random port and data generators could take PORT
 [ ] Load testing framework would be a huge confidence boost
 [ ] Code coverage enforcement on deployment
 
@@ -19,6 +20,7 @@ Are service overrides an anti-pattern? Things become big ball of mud if backend 
 [ ] absolute path packages freak me out. What happens if we move the repo or someone forks it?
 [ ] Changes to init.sh need to be encourage and thought about. How can developers remember to consider the init.sh?
 [ ] Excessive logging by default
+[ ] Ensure no sedentary code
 
 `curl` can use a "cookie-jar" which is a file format for storing cookies. Could
 make things easier. `-b` to use `-c` to store. Could be separate files.
@@ -339,7 +341,9 @@ The `Dockerfile` doesn't automatically build the `frontend/` so the
 `./scripts/build-container.sh` does that prior building the container.
 
 ## Testing
-Run all unit tests with `go test ./...`
+Run all unit tests with `go test ./...` or with `./scripts/test-unit-tests.sh`
+
+Run integration tests with `./scripts/test-integration-tests.sh`. Ensure the service isn't running.
 
 ## Tips and tricks
 `mockgen` is what I've used in the past to generate mocks. All interfaces are free game to mock.
